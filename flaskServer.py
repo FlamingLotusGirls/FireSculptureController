@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+
+import argparse
+
 from flask import Flask, request, jsonify, Response
 import json
 import gevent
@@ -30,9 +33,9 @@ class ServerSentEvent(object):
 	def encode(self):
 		if not self.data:
 			return ""
-		lines = ["%s: %s" % (v, k) 
+		lines = ["%s: %s" % (v, k)
 					 for k, v in self.desc_map.iteritems() if k]
-		
+
 		return "%s\n\n" % "\n".join(lines)
 
 
@@ -90,10 +93,17 @@ def subscribe():
 # sculpture.doCommand(['addGlobalInput', {'type' : 'multi', 'subType' : 'basic', 'number' : 5, 'min' : [0, 0, 1, 0,  1], 'max' : [1, 2, 3, 4,  5], 'description' : ['foo', 'bar', 'baz', 'bam', 'boo']}])
 # sculpture.doCommand(["changePatternInputBinding","poofers","poofersPattern0","poofButton",2,0])
 
+
 if __name__ == '__main__':
-	flaskApp.debug = True 
-	server = WSGIServer(("", 80), flaskApp)
+	parser = argparse.ArgumentParser(description='FireSculptureController')
+	parser.add_argument('--port', type=int, default=8080,
+			    help='port for webserver to listen on')
+	args = parser.parse_args()
+	flaskApp.debug = True
+	server = WSGIServer(("", args.port), flaskApp)
 	try:
+		print 'starting server on localhost:%s' % args.port
 		server.serve_forever()
-	except:
+	except Exception, err:
 		sculpture.doReset()
+		print err
