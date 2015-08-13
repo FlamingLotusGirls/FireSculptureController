@@ -1,9 +1,13 @@
 '''
 Messenger is an interface for all objects in the program to communicate with each other.
-It can have an arbitrary number of "channels". Any object can put a message on any channel, 
+It can have an arbitrary number of "channels". Any object can put a message on any channel,
 and other objects can either check the channel for messages on their own, or bind a function that
 will be called when a message appears on the channel.
 '''
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Messenger():
@@ -13,6 +17,7 @@ class Messenger():
 
 
 	def putMessage(self, channelId, message):
+		logger.debug('putMessage(%s, %s)', channelId, message)
 		self.checkForChannel(channelId)
 		if self.channels[channelId]['queueMessages']:
 			self.channels[channelId]['messages'].append(message)
@@ -21,6 +26,7 @@ class Messenger():
 		for bindingId in self.channels[channelId]['bindings']:
 			function = self.channels[channelId]['bindings'][bindingId]['function']
 			data = self.channels[channelId]['bindings'][bindingId]['data']
+			logger.debug('calling %s with %s', function, data)
 			if data:
 				function(*data)
 			else:
@@ -52,7 +58,7 @@ class Messenger():
 	def checkForChannel(self, channelId):
 		if not channelId in self.channels.keys():
 			self.channels[channelId] = {'messages' : [], 'bindings' : {}, 'queueMessages' : True}
-			
+
 	def setQueuing(self, channelId, value):
 		self.checkForChannel(channelId)
 		self.channels[channelId]['queueMessages'] = value

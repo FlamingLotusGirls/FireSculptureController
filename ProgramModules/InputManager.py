@@ -1,8 +1,13 @@
-''' Builds collections of input objects based on defaults. Manages uses: Inputs 
+''' Builds collections of input objects based on defaults. Manages uses: Inputs
 can be used by multiple things, so this keeps track of who's using what and deletes unused inputs'''
+import logging
+
 from ProgramModules import utils
 import ProgramModules.sharedObjects as app
 import Inputs
+
+logger = logging.getLogger(__name__)
+
 
 class InputManager():
 	def __init__ (self):
@@ -108,11 +113,11 @@ class InputCollection(object): #a package of all the inputs used by a module or 
 
 	def getInputAssignment(self, inputChannelId):
 		return [self.inputCollection[inputChannelId]['inputObj'].getId(), self.inputCollection[inputChannelId]['outParamIndex']]
-		
+
 	def doCommand(self, args):
 		function = getattr(self.inputCollection[args.pop(0)]['inputObj'], args.pop(0))
 		return function(*args)
-	
+
 	def reassignInput (self, inputChannelId, inputInstanceId, outParamIndex = 0):
 		inputObj = app.inputManager.registerAndGetInput(self.parentObj.getId(), inputInstanceId, inputChannelId)
 		self.inputCollection[inputChannelId]['inputObj'] = inputObj
@@ -124,6 +129,8 @@ class InputCollection(object): #a package of all the inputs used by a module or 
 		if 'bindToFunction' in self.inputParams[inputChannelId].keys():
 			inputAssignment = self.getInputAssignment(inputChannelId)
 			function = getattr(self.parentObj, self.inputParams[inputChannelId]['bindToFunction'])
+			logging.debug('addMessengerBindingsIfNeeded(%s): %s',
+				      inputChannelId, function)
 			if isinstance(inputAssignment[1], list):
 				self.messengerBindingIds[inputChannelId] = [app.messenger.addBinding('output%s_%s' %(inputAssignment[0], i), function, (inputChannelId, i)) for i in range(len(inputAssignment[1]))]
 			else:
@@ -142,16 +149,13 @@ class InputCollection(object): #a package of all the inputs used by a module or 
 		data = {}
 		for inputChannelId in self.inputParams:
 			if not('channels' in self.inputParams[inputChannelId].keys()):
-				inputAssignment = self.getInputAssignment(inputChannelId) 
+				inputAssignment = self.getInputAssignment(inputChannelId)
 				data[inputChannelId] = {'type' : self.inputParams[inputChannelId]['type'], 'inputInstanceId' : inputAssignment[0], 'outParamIndex' : inputAssignment[1], 'description' : self.inputParams[inputChannelId]['descriptionInPattern']}
 		return data
-		
-	
+
+
 	def stop(self):
 		for inputChannelId in self.inputParams:
 			self.removeExistingMessengerBindings(inputChannelId)
 		app.inputManager.unRegisterInputs(self.parentObj.getId())
 		self.parentObj = False
-
-
-
