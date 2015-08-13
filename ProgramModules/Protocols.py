@@ -1,9 +1,13 @@
-''' Protocols take data from the program and convert it into a specific language for talking to the sculpture, then sends it over an adaptor. They are constructed with 
+''' Protocols take data from the program and convert it into a specific language for talking to the sculpture, then sends it over an adaptor. They are constructed with
 an adaptor instance, so each one has all the "stuff" for talking to the sculpture. Protocols to be added: Soma, OpenPixel, Tympani LED, Serpent LED, Helyx maybe, motor contollers
-To send data, each takes a command like [ (address, data), (address2, data2), ...]. 
+To send data, each takes a command like [ (address, data), (address2, data2), ...].
 '''
 
+import logging
+
 import ProgramModules.sharedObjects as app
+
+logger = logging.getLogger(__name__)
 
 
 class ProtocolBase():
@@ -38,16 +42,25 @@ class ProtocolBase():
 
 	def translateTwoDimensionalListAddr(self, addr):
 		return self.configParams['mapping'][addr[0]][addr[1]]
-	 
+
 
 class FlgRelayProtocol(ProtocolBase): #Poofer relay boards used on Serpent, Angel, Tympani, Mutopia
-	def formatData(self, addr, data):   
+	def formatData(self, addr, data):
 		if (data in [True, '1', 1]) and ((not app.safeMode.isSet()) or self.ignoreSafeMode):
 			cmd = '1'
 		else:
 			cmd = '0'
 		return "!%02X%s%s." %(addr[0], addr[1], cmd)
-		
+
 class TympaniLedProtocol(ProtocolBase): #Tympani Mobius Leds
-	def formatData(self, addr, data):   
+	def formatData(self, addr, data):
 		return "!%02X%02X%02X." %(addr[0], addr[1], int(data))
+
+
+class SerpentMotherLedProtocol(ProtocolBase):
+	"""Protocol for the Serpent Mother LEDs."""
+
+	def formatData(self, addr, data):
+		logger.debug('sending %s to %s', data, addr)
+		# TODO: implement format. Currently only a mock.
+		return ""

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import logging
 
 from flask import Flask, request, jsonify, Response
 import json
@@ -10,6 +11,8 @@ from gevent.queue import Queue
 
 import ProgramModules.sharedObjects as app
 from SculptureController import SculptureController
+
+logging.basicConfig(level=logging.INFO)
 
 flaskApp = Flask(__name__,  static_folder='jsGui', static_url_path='/jsGui')
 sculpture = SculptureController()

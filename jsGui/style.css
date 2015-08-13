@@ -34,7 +34,7 @@ body{
   float:left;
   margin:10px;
   display:block;
-  
+
 }
 .inputOutputWrapper{
   margin: 120px 0px 10px 0px;
@@ -46,7 +46,7 @@ body{
   padding: 0px 0px 10px 0px;
   float:left;
   border-top: 1px solid #87CEEB;
-  background: #1f3036 ; 
+  background: #1f3036 ;
 }
 .descriptionText{
   color: #87CEEB;
@@ -71,14 +71,14 @@ body{
   font-size:22px !important;
   font-weight:bold !important;
   font-family: Segoe UI,Helvetica,Arial,sans-serif !important;
-  padding:1px 6px 1px 6px !important; 
+  padding:1px 6px 1px 6px !important;
   margin-top:10px ;
   margin-bottom:15px ;
 }
 .sculptureHeading, .safeModeLabel.ui-state-active, .choiceInputItemLabel.ui-state-active{
   background: #87CEEB !important;
   color:#000000 !important;
-  border-color: #87CEEB !important; 
+  border-color: #87CEEB !important;
 }
 
 .safeModeLabel{
@@ -87,23 +87,31 @@ body{
 .safeModeLabel span{
   padding:0px !important;
 }
+.ledDisplayLabel, .enableControlLabel{
+  width:15px;
+  height:15px;
+  margin:0px -2px 0px 0px !important;
+}
+.ledDisplayLabel.ui-state-active{
+  background: #FFCD4D !important;
+}
 .pooferDisplayLabel, .enableControlLabel{
   width:15px;
   height:15px;
   margin:0px -2px 0px 0px !important;
 }
 .pooferDisplayLabel.ui-state-active{
-  background: #FFCD4D !important; 
+  background: #FFCD4D !important;
 }
 .enableControlLabel.ui-state-active,  .inputControl.ui-state-active{
-  background: #55CCFF !important; 
-  border-color: #55CCFF !important; 
+  background: #55CCFF !important;
+  border-color: #55CCFF !important;
 }
 .toggleRowLabel.ui-state-focus span, .toggleRowLabel.ui-state-default span{
-  color: #60A2BF; 
+  color: #60A2BF;
 }
 .toggleRowLabel.ui-state-active span{
-  color: #FFCD4D !important; 
+  color: #FFCD4D !important;
 }
 .toggleRowLabel{
   margin-top:2px;

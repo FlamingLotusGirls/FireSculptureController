@@ -6,6 +6,11 @@ var currentView = {'activeTab' : false, 'activeModule' : false, activeSections :
 var serverSentEventStream = false;
 
 
+function convertRGBTupleToRGBString(tuple) {
+	return "rgb(" + tuple[0] + "," + tuple[1] + "," + tuple[2] + ")";
+};
+
+
 function handleDataStreamEvent(data){
 	if (data.log){
 		$.each(data.log, function(logIndex, logItem){
@@ -19,7 +24,25 @@ function handleDataStreamEvent(data){
 	if (data.outputChanged){
 		$.each(data.outputChanged, function(index, outputChangeMessage){
 			$.each(outputChangeMessage.data, function(index, pointData){
-				$('#' + outputChangeMessage.moduleId + '_' + pointData[0][0] + '_' + pointData[0][1] + '_outputView').prop('checked', pointData[1]);
+				if (outputChangeMessage.moduleId == 'leds') {
+					var element = $('#' +
+							outputChangeMessage.moduleId +
+							'_' +
+							pointData[0][0] +
+							'_' + pointData[0][1] +
+							'_label')[0];
+					element.style.background =
+						convertRGBTupleToRGBString(pointData[1]);
+
+				} else {
+					var element = $('#' +
+							outputChangeMessage.moduleId +
+							'_' +
+							pointData[0][0] +
+							'_' + pointData[0][1]);
+					element.prop('checked', pointData[1]);
+
+				}
 			});
 		});
 		$('.outputViewRow').buttonset('refresh');
@@ -297,6 +320,9 @@ function buildAll(){
 		});
 		$.each( allSculptureData.modules, function( moduleId, moduleData ) {
 			switch(moduleData.moduleType){
+				case 'Leds':
+					buildLEDsModule(moduleData);
+					break;
 				case 'Poofer':
 					buildPooferModule(moduleData);
 					break;
@@ -387,6 +413,91 @@ function makeSculptureControllerTemplateData(){
 	return data;
 }
 
+function buildLEDsModule(moduleData){
+	moduleId = moduleData.moduleId
+	// At first, parse the given 'moduleData' object and convert it to
+	// local data format.
+	templateModuleData = {
+		"moduleId" : moduleId,
+		"name" : moduleData.name,
+		"availablePatternNames" : [],
+		"patterns" : [],
+		"inputs" : [],
+		"rows" : []};
+	$.each( moduleData.availablePatternNames, function( patternIndex, patternName ) {
+		templateModuleData.availablePatternNames.push({"name" : patternName});
+	});
+	$.each( moduleData.patterns, function( patternInstanceId, patternData ) {
+		templatePatternData = {
+			"patternName" : patternData.name,
+			"patternInstanceId" : patternInstanceId,
+			"rowSettings" : [],
+			"moduleId" : moduleId};
+		$.each(patternData.rowSettings, function(rowIndex, rowSetting){
+			rowData = {
+				"moduleId" : moduleId,
+				"patternInstanceId" : patternInstanceId,
+				"rowIndex" : rowIndex};
+			if (rowSetting) rowData['enabled'] = true;
+			templatePatternData.rowSettings.push(rowData);
+		});
+		templateModuleData.patterns.push(templatePatternData);
+	});
+	$.each( moduleData.protocol.mapping, function( rowIndex, rowData ) {
+		templateRowData = {
+			"rowIndex" : rowIndex,
+			"moduleId" : moduleId,
+			"cols" : []};
+		$.each( rowData, function( colIndex, colData ) {
+			templateRowData.cols.push({
+				"rowIndex" : rowIndex,
+				"moduleId" : moduleId,
+				"colIndex" : colIndex});
+			if (moduleData.enabledStatus[rowIndex][colIndex]){
+				templateRowData.cols[colIndex]['enabled'] = true;
+			}
+		});
+		templateModuleData.rows.push(templateRowData);
+	});
+
+	// Then, render the data.
+	$('#' + moduleId + '_module').html(
+		$('#ledModuleTemplate').render(templateModuleData));
+	$('#' + moduleId + '_patternChoices').menu();
+	$('#' + moduleId + '_removePatternButton').button().click(function(e){
+		patternId = $('#' + moduleId + '_patternSelection').val();
+		if (patternId && patternId != 'none'){
+			doCommand(['removePattern', moduleId, patternId]);
+		}
+	});
+	$.each( moduleData.protocol.mapping, function( rowIndex, rowData ) {
+		$('#' + moduleId + '_outputView_row' + rowIndex).buttonset();
+		$('#' + moduleId + '_enableView_row' + rowIndex).buttonset();
+	});
+	$('#' + moduleId + '_module .toggleRowButton').button().click(function(){
+		parts = this.id.split('_');
+		doCommand(['toggleRowSelection',
+			   parts[0], parts[1], parseInt(parts[2])]);
+		$('label[for="' + this.id + '"] > .ui-button-text').html('Row ' + parts[2] + ($('#' + this.id).is(":checked")?' Enabled':' Disabled'));
+	});
+	$('#' + moduleId + '_module .ledDisplay').click(function(){
+		parts = this.id.split('_');
+		doCommand(['setItemState',
+			   parts[0],
+			   [parseInt(parts[1]), parseInt(parts[2])],
+			   true]);
+		$('#' + this.id).prop('checked', false);
+		$('.outputViewRow').buttonset('refresh');
+	});
+	$('#' + moduleId + '_module .enableControl').button().click(function(){
+		parts = this.id.split('_');
+		doCommand(['toggleEnable',
+			   parts[0],
+			   [parseInt(parts[1]), parseInt(parts[2])]]);
+	});
+
+}
+
 function buildPooferModule(moduleData){
 	moduleId = moduleData.moduleId
 	templateModuleData = {"moduleId" : moduleId, "name" : moduleData.name, "availablePatternNames" : [], "patterns" : [], "inputs" : [], "rows" : []};
@@ -454,12 +565,12 @@ function buildInputControls(inputInstanceId, inputData){
 			templateData['id'] = inputId;
 			templateData['inputInstanceId'] = inputInstanceId;
 			templateData['settingIndex'] = settingIndex;
-			
+
 			switch(settingData['type']){
 				case 'text':
 					if (settingData.subType == 'choice'){
 						templateData['choices'] = [];
-						$.each(settingData.choices, function(choiceValue, choiceText){ 
+						$.each(settingData.choices, function(choiceValue, choiceText){
 							templateData['choices'].push({'value' : choiceValue, 'name' : choiceText, 'inputInstanceId' : inputInstanceId});
 						});
 						$('#' + inputId + '_container').append($('#choiceTextTemplate').render(templateData));
@@ -533,7 +644,7 @@ function hideAllInputs(){
 			$(id).css('display', 'none');
 			$(id).html('');
 		});
-		
+
 	});
 
 }
@@ -676,6 +787,6 @@ function initKnob(htmlId, inputInstanceId, settingIndex){
 
 						return false;
 				}
-		}	
+		}
 	});
 }
