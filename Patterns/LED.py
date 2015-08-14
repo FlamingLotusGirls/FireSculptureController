@@ -21,7 +21,7 @@ class LED(object):
 		  color_triple: A tuple of 3 color values for RGB.
 		"""
 		if not color_triple:
-			self.color_triple = (255, 0, 0)
+			self.color_triple = (0, 0, 0)
 		else:
 			self.color_triple = color_triple
 		self._brightness = 0
@@ -32,6 +32,18 @@ class LED(object):
 
 	@color_triple.setter
 	def color_triple(self, color_triple):
+		if color_triple[0] < 0 or color_triple[0] > 255:
+			msg = ('color_triple[0] must be between 0 and 255, '
+			       'was %s instead' % color_triple[0])
+			raise ValueError(msg)
+		if color_triple[1] < 0 or color_triple[1] > 255:
+			msg = ('color_triple[1] must be between 0 and 255, '
+			       'was %s instead' % color_triple[1])
+			raise ValueError(msg)
+		if color_triple[2] < 0 or color_triple[2] > 255:
+			msg = ('color_triple[2] must be between 0 and 255, '
+			       'was %s instead' % color_triple[2])
+			raise ValueError(msg)
 		self._color_triple = color_triple
 
 	def getColorWithBrightness(self):
@@ -63,7 +75,7 @@ class LED(object):
 class LEDGrid(object):
 	"""A two-dimensional grid of LEDs."""
 
-	def __init__(self, row_count, col_count):
+	def __init__(self, row_count, col_count, default_color_triple=None):
 		"""Initialize.
 
 		Args:
@@ -72,8 +84,11 @@ class LEDGrid(object):
 		"""
 		self._row_count = row_count
 		self._col_count = col_count
+		if not default_color_triple:
+			default_color_triple = (0, 0, 0)
 		self._leds = []
-		self._leds = [[LED() for col in range(col_count)]
+		self._leds = [[LED(default_color_triple)
+			       for col in range(col_count)]
 			      for row in range(row_count)]
 
 	@property
@@ -137,7 +152,7 @@ class HeartBeat(PatternBase):
 		# 'type' and 'subtype' are used to create the input name as
 		# defined in Inputs.Basic.inputTypes.
 		self.inputParams = {
-			'multiVal' : {
+			'PatternMultiVal' : {
 				'descriptionInPattern' : 'Parameters',
 				'type' : 'multi',
 				'subType' : 'basic',
@@ -145,12 +160,32 @@ class HeartBeat(PatternBase):
 				'basicInputType' : 'int value',
 				'min' : [1, 1],
 				'max' : [self.col_count - 1, 100],
-				'default' : [self.col_count / 2,
-					     70],
+				'default' : [self.col_count / 2, 70],
 				'description' : ['heart position',
-						 'maximum brightness'],
+						 'maximum brightness',
+					 ],
 				'channels' : ['heart_pos',
-					      'max_brightness'],
+					      'max_brightness',
+				      ],
+			},
+			'ColorMultiVal' : {
+				'descriptionInPattern' : 'Parameters',
+				'type' : 'multi',
+				'subType' : 'basic',
+				'number' : 3,
+				'basicInputType' : 'int value',
+				'min' : [0, 0, 0],
+				'max' : [255, 255, 255],
+				# red is a good default for a heartbeat.
+				'default' : [255, 0, 0],
+				'description' : ['red color additive',
+						 'green color additive',
+						 'blue color additive',
+				],
+				'channels' : ['red',
+					      'green',
+					      'blue',
+				],
 			},
 			'triggerStep' : {
 				'descriptionInPattern' :
@@ -190,11 +225,28 @@ class HeartBeat(PatternBase):
 				'The maximum brightness of the heart LED.',
 				'type' : 'value',
 			},
+			'red' : {
+				'descriptionInPattern' : 'Red value of color.',
+				'type' : 'value',
+			},
+			'green' : {
+				'descriptionInPattern' : 'Green value of color.',
+				'type' : 'value',
+			},
+			'blue' : {
+				'descriptionInPattern' : 'Blue value of color.',
+				'type' : 'value',
+			},
 		}
 		PatternBase.__init__(self, *args)
 		self.sequenceTriggered = False
 
-		self._led_grid = LEDGrid(self.row_count, self.col_count)
+		self._red = self.inputs.red
+		self._green = self.inputs.green
+		self._blue = self.inputs.blue
+
+		self._led_grid = LEDGrid(self.row_count, self.col_count,
+					 (self._red, self._green, self._blue))
 		self._heart_row = -1
 		self._heart_col = -1
 		self._heart_led = None
@@ -272,6 +324,19 @@ class HeartBeat(PatternBase):
 			LEDGrid.getDistance((self.row_count, self.col_count),
 					    (row, col)))
 
+	def _update_color(self, color_triple):
+		"""Update the color of all LEDs.
+
+		Args:
+		  color_triple: A (red, green, blue) color tuple.
+		"""
+		for row in range(self._led_grid.row_count):
+			for col in range(self._led_grid.col_count):
+				self._led_grid.getLED(row, col).color_triple = color_triple
+		self._red = self.inputs.red
+		self._green = self.inputs.green
+		self._blue = self.inputs.blue
+
 	def _update_non_heart_leds(self):
 		"""Update all LEDs that are not the heart LED.
 
@@ -329,6 +394,12 @@ class HeartBeat(PatternBase):
 			if self._max_brightness != self.inputs.max_brightness:
 				self._max_brightness = self.inputs.max_brightness
 				self._led_values = self._compute_heart_values()
+			if ((self._red != self.inputs.red) or
+			    (self._green != self.inputs.green) or
+			    (self._blue != self.inputs.blue)):
+				self._update_color((self.inputs.red,
+						    self.inputs.green,
+						    self.inputs.blue))
 			self._update_leds()
 			self.requestUpdate()
 
