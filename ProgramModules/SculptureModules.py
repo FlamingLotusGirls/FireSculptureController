@@ -3,10 +3,13 @@ stuff that does things on sculptures.
 '''
 from copy import deepcopy
 import json
+import logging
 import traceback
 
 from ProgramModules.Timers import Timer
 import ProgramModules.sharedObjects as app
+
+logger = logging.getLogger(__name__)
 
 
 class SculptureModuleBase():
@@ -23,6 +26,7 @@ class SculptureModuleBase():
 
 
 	def doCommand(self, command):
+		logger.debug('doCommand(%s)', command)
 		functionName = command.pop(0)
 		function = getattr(self, functionName)
 		return function(*command)

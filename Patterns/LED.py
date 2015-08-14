@@ -127,11 +127,12 @@ class HeartBeat(PatternBase):
 	# ROW_COUNT = 1
 
 	def __init__(self, *args):
-		print 'Z'*50
 		# Passed in via SculptureModuleBase.addPattern().
 		grid_size = args[0]
 		self.row_count = grid_size[0]
 		self.col_count = grid_size[1]
+		logger.info('HearBeat Pattern initialized (size=[%s,%s])',
+			     self.row_count, self.col_count)
 		# A dictionary of input parameters rendered in the UI. Note
 		# that those are used by PatternBase.__init__() to construct
 		# self.inputs, an InputManager.InputCollection object.
@@ -156,7 +157,7 @@ class HeartBeat(PatternBase):
 			},
 			'triggerStep' : {
 				'descriptionInPattern' :
-				'Trigger next step in sequence',
+				'Interval between refreshs',
 				'type' : 'pulse',
 				'subType' : 'timer',
 				'bindToFunction' : 'triggerStep',
@@ -171,10 +172,16 @@ class HeartBeat(PatternBase):
 				'bindToFunction' : 'triggerSequence',
 			},
 			# Name must match channel defined above in 'multiVal'.
+			#
+			# Note that this is a one-dimensional value - we
+			# simplify and assume the LED grid only has 1 row and
+			# 'heart_pos' identifies the column position of the
+			# heart.
 			'heart_pos' : {
 				'descriptionInPattern' :
 				'Position of the heart.',
 				'type' : 'value',
+				'bindToFunction' : '_update_heart_position',
 			},
 			# Name must match channel defined above in 'multiVal'.
 			'brightness' : {
@@ -184,7 +191,7 @@ class HeartBeat(PatternBase):
 			},
 		}
 		PatternBase.__init__(self, *args)
-		self.sequenceTriggered = True
+		self.sequenceTriggered = False
 
 
 		self._led_grid = LEDGrid(self.row_count, self.col_count)
@@ -198,7 +205,8 @@ class HeartBeat(PatternBase):
 		self.increase = True
 
 	def _update_heart_position(self, row, col):
-		print 'row: %s, col: %s' % (row, col)
+		logger.info('HeartBeat._update_heart_position(%s, %s)',
+			    row, col)
 		self._heart_row = row
 		self._heart_col = col
 		self._heart_led = self._led_grid.getLED(row, col)
@@ -222,6 +230,7 @@ class HeartBeat(PatternBase):
 				self._led_grid.getLED(row, col).brightness = new_brightness
 
 	def _update_leds(self):
+		logging.debug('HeartBeat._update_leds() called.')
 		if self._heart_led.brightness >= .99:
 			brightness_diff = 0 - self.BRIGHTNESS_DIFF
 		elif self._heart_led.brightness <= 0.3:
@@ -236,11 +245,18 @@ class HeartBeat(PatternBase):
 
 	def triggerStep(self, *args):
 		if self.inputs.triggerStep and self.sequenceTriggered:
-			self.requestUpdate()
+			logging.debug('HeartBeat.triggerStep() called.')
+			# HACK: As mentioned above, we assume a single row and
+			# only update the column of the heart position
+			if self._heart_col != self.inputs.heart_pos:
+				self._update_heart_position(
+					self._heart_row, self.inputs.heart_pos)
 			self._update_leds()
+			self.requestUpdate()
 
 	def triggerSequence(self, *args):
 		if self.inputs.triggerSequence:
+			logging.info('HeartBeat.triggerSequence() called.')
 			self.inputs.doCommand(['triggerStep', 'refresh'])
 			self.sequenceTriggered = True
 
