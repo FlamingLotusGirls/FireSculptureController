@@ -1,6 +1,10 @@
 import json
 import logging
 
+# Used to compute heartbeat. Importing these slows down load time noticeably.
+import scipy
+from scipy import signal
+
 from Patterns.PatternBase import PatternBase
 from ProgramModules.Timers import Timer
 
@@ -112,19 +116,12 @@ class LEDGrid(object):
 class HeartBeat(PatternBase):
 	"""An LED pattern emulating a heart beat."""
 
-	# DEFAULT_BRIGHTNESS = 0.4
-
 	# Difference in brightness per step (either increasing of decreasing).
 	BRIGHTNESS_DIFF = 0.1
 
 	# Differences in brightness in relation to the distance to the point
 	# (the further away, the darker).
 	DISTANCE_DIFF = 0.05
-
-	# # Number of columns of LEDs.
-	# COL_COUNT = 20
-	# # Number of columns of LEDs.
-	# ROW_COUNT = 1
 
 	def __init__(self, *args):
 		# Passed in via SculptureModuleBase.addPattern().
@@ -148,12 +145,12 @@ class HeartBeat(PatternBase):
 				'basicInputType' : 'int value',
 				'min' : [1, 1],
 				'max' : [self.col_count - 1, 100],
-				'default' : [2, 1, 1],
+				'default' : [self.col_count / 2,
+					     70],
 				'description' : ['heart position',
-						 'brightness'],
+						 'maximum brightness'],
 				'channels' : ['heart_pos',
-					      'brightness',
-					      'speed'],
+					      'max_brightness'],
 			},
 			'triggerStep' : {
 				'descriptionInPattern' :
@@ -162,8 +159,8 @@ class HeartBeat(PatternBase):
 				'subType' : 'timer',
 				'bindToFunction' : 'triggerStep',
 				'min' : 1 ,
-				'max' : 3000,
-				'default' : 10,
+				'max' : 100,
+				'default' : 1,
 			},
 			'triggerSequence' : {
 				'descriptionInPattern' : 'Activate',
@@ -171,7 +168,11 @@ class HeartBeat(PatternBase):
 				'subType' : 'onOff',
 				'bindToFunction' : 'triggerSequence',
 			},
-			# Name must match channel defined above in 'multiVal'.
+			# Name must match channel defined above in
+			# 'multiVal'. This inputs do not have corresponding
+			# function bindings, but we update the matching
+			# internal values on triggerStep(), thus having a
+			# near-immediate effect.
 			#
 			# Note that this is a one-dimensional value - we
 			# simplify and assume the LED grid only has 1 row and
@@ -184,15 +185,14 @@ class HeartBeat(PatternBase):
 				'bindToFunction' : '_update_heart_position',
 			},
 			# Name must match channel defined above in 'multiVal'.
-			'brightness' : {
+			'max_brightness' : {
 				'descriptionInPattern' :
-				'The brightness of the heart LED.',
+				'The maximum brightness of the heart LED.',
 				'type' : 'value',
 			},
 		}
 		PatternBase.__init__(self, *args)
 		self.sequenceTriggered = False
-
 
 		self._led_grid = LEDGrid(self.row_count, self.col_count)
 		self._heart_row = -1
@@ -200,11 +200,68 @@ class HeartBeat(PatternBase):
 		self._heart_led = None
 		self._max_distance = -1
 		# Note that this sets the self._heart_... attributes.
-		self._update_heart_position(0, self.col_count / 2)
+		self._update_heart_position(0, self.inputs.heart_pos)
 		self._max_distance = (0, 0)
+		self._max_brightness = self.inputs.max_brightness
 		self.increase = True
 
+		# A list of precomputed heart brightness values we will read
+		# from on update.
+		self._led_values = self._compute_heart_values()
+		# Determine the last index once, so we dont' have to do it for
+		# every update.
+		self._led_values_last_index = len(self._led_values) - 1
+		# Index of the currently used heart brightness value.
+		self._led_values_index = 0
+
+	def _compute_heart_values(self):
+		"""Precompute heart brightness values.
+
+		The returned list reflects brightness values emulating a
+		beating heart. A visualization can iterate over the values
+		repeatedly for a good heart beat pattern.
+
+		We precompute them because the operation is expensive.
+
+		Returns:
+		  A list of precomputed heart beat values.
+		"""
+
+		values = []
+		# No variability as we are going to loop anyway.
+		rate_variability = [1.0, 1.0]
+		# The higher the sample rate, the more values we get. The
+		# current value was determined by trial-and-error.
+		sample_rate = 50.0
+		# To be honest, no idea what this means or affects the values.
+		daub_array = signal.wavelets.daub(10)
+		ecg_data_points = []
+		for r in rate_variability:
+			ecg_data_points.append(signal.resample(
+				daub_array, int(r*sample_rate)))
+		values = scipy.concatenate(ecg_data_points)
+		# Equalize data to fit into our expected brightness spectrum.
+		minimum = min(values)
+		maximum = max(values)
+		# We multiply by 2 to end up with a value greater than 1, but
+		# smaller than 2 (heuristically determined, no smart reason
+		# why).
+		factor = max(minimum, maximum)*2
+		# The brightness boost is computed based on the factor (a value
+		# between 2 and 1), multiplied by the user-configured maximum
+		# brightness of the heart (which is something between 1 and
+		# 100, so we divide it accordingly.)
+		brightness_boost = (factor - 1)*(self._max_brightness/100.0)
+		# Now we take the computed values, devide them by the
+		# precomputed factor, which equalizes them somewhat, and add
+		# the computed brightness boost. The addition allows us to set
+		# the heart to the proper brightness value and aligns all other
+		# values accordingly.
+		values = [(value/factor)+brightness_boost for value in values]
+		return values
+
 	def _update_heart_position(self, row, col):
+		"""Set a new heart position and update related values."""
 		logger.info('HeartBeat._update_heart_position(%s, %s)',
 			    row, col)
 		self._heart_row = row
@@ -216,6 +273,12 @@ class HeartBeat(PatternBase):
 					    (row, col)))
 
 	def _update_non_heart_leds(self):
+		"""Update all LEDs that are not the heart LED.
+
+		This function iterates through all LEDs, and adjusts their
+		brightness based on the distance to the heart.
+
+		"""
 		for row in range(self._led_grid.row_count):
 			for col in range(self._led_grid.col_count):
 				distance = LEDGrid.getDistance(
@@ -230,20 +293,31 @@ class HeartBeat(PatternBase):
 				self._led_grid.getLED(row, col).brightness = new_brightness
 
 	def _update_leds(self):
+		"""Update all LEDs.
+
+		This function determines the new heart brightness value, then
+		updates all LEDs accordingly.
+		"""
 		logging.debug('HeartBeat._update_leds() called.')
-		if self._heart_led.brightness >= .99:
-			brightness_diff = 0 - self.BRIGHTNESS_DIFF
-		elif self._heart_led.brightness <= 0.3:
-			# Don't turn off heart entirely
-			brightness_diff = 0 + self.BRIGHTNESS_DIFF
+		# Iterate through precomputed values, start at the beginning
+		# when done.
+		if self._led_values_index < self._led_values_last_index:
+			self._led_values_index += 1
 		else:
-			brightness_diff = 0 + self.BRIGHTNESS_DIFF
-		self._heart_led.brightness += brightness_diff
+			self._led_values_index = 0
+		# Determine the brightness based on the precomputed value and
+		# the max_brightness multiplier.
+		brightness = self._led_values[self._led_values_index]
+		self._heart_led.brightness = brightness
 		self._update_non_heart_leds()
 
-
-
 	def triggerStep(self, *args):
+		"""Run one step in the pattern.
+
+		If input values have been updated, also update the local values
+		and recompute the heart brightness values.
+
+		"""
 		if self.inputs.triggerStep and self.sequenceTriggered:
 			logging.debug('HeartBeat.triggerStep() called.')
 			# HACK: As mentioned above, we assume a single row and
@@ -251,6 +325,10 @@ class HeartBeat(PatternBase):
 			if self._heart_col != self.inputs.heart_pos:
 				self._update_heart_position(
 					self._heart_row, self.inputs.heart_pos)
+			# Update brightness based on input values.
+			if self._max_brightness != self.inputs.max_brightness:
+				self._max_brightness = self.inputs.max_brightness
+				self._led_values = self._compute_heart_values()
 			self._update_leds()
 			self.requestUpdate()
 
