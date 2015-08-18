@@ -1,6 +1,7 @@
 import json
-import os
 import inspect
+import logging
+import os
 import time
 from copy import deepcopy
 
@@ -10,6 +11,8 @@ from ProgramModules import utils, SculptureModules
 import ProgramModules.sharedObjects as app
 import Inputs
 
+
+logger = logging.getLogger(__name__)
 
 
 class SculptureController():
@@ -21,7 +24,7 @@ class SculptureController():
 		self.globalInputs = {} #inputs that are available to be used by any pattern
 		self.availableGlobalInputs = []
 		self.sculptureConfig = False
-		
+
 		for inputType in [['multi', 'osc'], ['pulse', 'audio'], ['multi', 'basic']]:
 			if not 'unavailable' in Inputs.inputTypes[' '.join([inputType[1], inputType[0]])].keys():
 				self.availableGlobalInputs.append(inputType)
@@ -69,6 +72,7 @@ class SculptureController():
 		inputObj.setInputValue(*args)
 
 	def doCommand(self, command):
+		logger.debug('doCommand(%s)', command)
 		functionName = command[0]
 		if functionName in self.methodList:
 			command.pop(0)
@@ -78,7 +82,7 @@ class SculptureController():
 			moduleId = command.pop(1)
 			return self.sculptureModules[moduleId].doCommand(command)
 
-	def getCurrentStateData(self): 
+	def getCurrentStateData(self):
 		if self.sculptureConfig:
 			data = self.sculptureConfig.copy()
 			data['safeMode'] = app.safeMode.isSet()
@@ -102,7 +106,7 @@ class SculptureController():
 	def removeGlobalInput(self, inputInstanceId):
 		app.inputManager.unRegisterInputs('main', inputInstanceId)
 		del self.globalInputs[inputInstanceId]
-		
+
 	def setSafeMode(self, value):
 		app.safeMode.set(value)
 
