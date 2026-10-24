@@ -41,7 +41,14 @@ def test_active_configuration_and_gui_match_the_preserved_files():
                  if name == "config.json" or name.startswith(("sculptureDefinitions/", "jsGui/"))]
     assert len(unchanged) == 47
     for name in unchanged:
-        assert (ROOT / name).read_bytes() == (ROOT / "py2" / name).read_bytes(), name
+        current = (ROOT / name).read_bytes()
+        original = (ROOT / "py2" / name).read_bytes()
+        path = Path(name)
+        if path.suffix in {'.json', '.htm', '.html', '.js', '.css', '.md', '.txt'} or path.name == 'LICENSE':
+            # Git checks out LF on Linux; the frozen Windows snapshot retains CRLF.
+            current = current.replace(b'\r\n', b'\n')
+            original = original.replace(b'\r\n', b'\n')
+        assert current == original, name
 
 
 def test_application_bytes_match_the_saved_python2_baseline(current_trace):

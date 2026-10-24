@@ -39,9 +39,10 @@ sudo systemctl status firesculpture
 sudo journalctl -u firesculpture -f
 ```
 
-Stop with `sudo systemctl stop firesculpture`. SIGTERM requests safe mode and bounded
-serial OFF delivery; the unit restarts on failure and allows 15 seconds for process
-shutdown. A restart begins in safe mode. A successful write is not a relay acknowledgement.
+Stop with `sudo systemctl stop firesculpture`. SIGTERM enters safe mode, cancels governed
+output without sending ON or OFF, and stops the workers. Tympani's exempt controls retain
+their exception. The unit restarts on failure and allows 15 seconds for process shutdown.
+A restart begins in safe mode. A successful write is not a relay acknowledgement.
 
 This template has not been installed or verified on the Pi. Reboot, physical serial,
 disconnect/reconnect, and actual Linux service-stop checks remain pending.

@@ -17,11 +17,11 @@ HTTP/OSC tests bind to localhost on temporary ports.
 
 | File | Evidence |
 | --- | --- |
-| `tests/test_reference.py` | All 75 frozen file hashes; 47 unchanged configuration/GUI files; 59 application scenarios against the saved baseline and a fresh Python 2 run; HeartBeat controls and 360 steps across 42 LEDs with third-party packages disabled. |
+| `tests/test_reference.py` | All 75 frozen file hashes; 47 unchanged configuration/GUI files (text comparison ignores Git's CRLF/LF conversion; binary files remain exact); 59 application scenarios against the saved baseline and a fresh Python 2 run; HeartBeat controls and 360 steps across 42 LEDs with third-party packages disabled. |
 | `tests/test_serial.py` | Exact relay/Tympani bytes through loopback; 92 old/new protocol cases with explicit safe-mode suppression differences; silent startup, safe-mode cancellation, Tympani exemption, failed/partial writes, reconnect, queue overflow/age, and bounded shutdown. |
 | `tests/test_osc.py` | Actual UDP pulse/toggle/value routing, GUI address lists, bundles/timetags, pulse auto-OFF, cancellation, self-stop, and socket reuse. |
 | `tests/test_lifecycle.py` | All sculptures and listed patterns, Chase spacing/reverse, pattern removal, timers, reload, partial initialization, HTTP commands, SSE, and consistent state snapshots. |
-| `tests/test_shutdown.py` | Headless boot, SIGINT/SIGTERM handlers, startup/worker failure, final Angel OFF bytes, and joined workers in isolated processes. |
+| `tests/test_shutdown.py` | Headless boot, SIGINT/SIGTERM shutdown, startup/worker failure, no writes during safe mode, and joined workers in isolated processes. Linux receives actual process signals; Windows invokes the registered handlers internally. |
 
 Python 2 is optional for ordinary development. Tests find it via `PYTHON2`, `python2`
 on PATH, or `C:/Python27/python.exe`. Legacy dependencies come from `.deps-py2/` or
@@ -127,12 +127,39 @@ Step 7, step 8, and the safe-mode correction results are recorded in [the migrat
 use Python 3.13.17 and Python 3.11.15, with Python 2.7.18 for the fresh reference. The
 3.11 run uses the same installed runtime/pytest packages via `PYTHONPATH`; it is not a
 separate clean dependency installation. Requirements are pinned to the verified local
-environment; installation on the Pi still needs validation.
+environment.
 
 Windows shutdown tests invoke the registered handlers through Python's interrupt
-mechanism. Actual Linux signal delivery and systemd behavior remain unverified.
+mechanism. On Linux, the parent sends SIGINT/SIGTERM to the test process directly.
 
-On the available Pi, exercise **all three** configurations with actual timers and serial
+Pi software validation on 2026-10-24 used a Raspberry Pi 4 Model B Rev 1.5, Debian 13.7
+(aarch64), and `/usr/bin/python3` 3.13.5, starting from commit `8b97e55`. The pinned runtime
+and development requirements installed independently into ignored `artifacts/py3-deps/`,
+using the standalone pip zipapp saved at `artifacts/pip.pyz`. No virtual environment or
+system package changes were needed. This is a test installation; normal deployment still
+needs its dependency location configured. Run these commands from the repository root:
+
+```sh
+PYTHONPATH="$PWD/artifacts/py3-deps" /usr/bin/python3 -S -W error -m pytest -q
+PYTHONPATH="$PWD/artifacts/py3-deps" /usr/bin/python3 -m mypy
+PYTHONPATH="$PWD/artifacts/py3-deps" /usr/bin/python3 -S artifacts/pip.pyz check
+```
+
+Results: **48 passed, 2 skipped**, with warnings as errors; mypy passed all 26 active
+source files; active-source compilation and the isolated dependency check passed. All
+59 saved-baseline scenarios, 75 frozen hashes, and 47 configuration/GUI content comparisons
+passed. The initial Linux run exposed CRLF/LF differences in 22 text assets; the text
+comparison now ignores only that conversion, while binary comparisons and frozen hashes
+remain exact. Python 2 is absent, so the fresh application comparison and 92-case protocol
+comparison were skipped. The Python 2 fallback has not been launched on this Pi.
+
+The suite exercised all three sculptures with recording or loopback transports and local
+HTTP/UDP. Angel shutdown passed with actual Linux SIGINT/SIGTERM, no governed writes in
+safe mode, and joined workers. The updated Windows signal path has not been rerun here.
+Installation and test reports are retained locally as `artifacts/pi-install.json` and
+`artifacts/pi-pytest.xml`. No physical serial port was opened or systemd service installed.
+
+Remaining field checks: exercise **all three** configurations with actual timers and serial
 I/O: GUI controls and patterns, numeric text-list inputs, RandomPoof, safe-mode entry,
 silent startup, disconnect/reconnect, reload, Ctrl+C, and service stop/restart/reboot. Compare
 captured bytes and inspect pulse durations/cadence separately. Capture through a suitable

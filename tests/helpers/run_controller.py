@@ -42,7 +42,7 @@ def make_server(*args, **kwargs):
     return server
 web.make_server = make_server
 
-if mode in ('SIGINT', 'SIGTERM'):
+if sys.platform == 'win32' and mode in ('SIGINT', 'SIGTERM'):
     def interrupt():
         sys.stdin.readline()
         # Exercise Python's registered handler on Windows without a visible console.

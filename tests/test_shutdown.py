@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 from queue import Queue
+import signal
 import subprocess
 import sys
 from threading import Thread
@@ -44,8 +45,11 @@ def test_headless_shutdown_closes_workers_without_writing_in_safe_mode(mode, tmp
                                       headers={'Content-Type': 'application/json'})
                     with urlopen(request, timeout=2) as response:
                         assert response.status == 200
-                process.stdin.write('stop\n')
-                process.stdin.flush()
+                if sys.platform == 'win32':
+                    process.stdin.write('stop\n')
+                    process.stdin.flush()
+                else:
+                    process.send_signal(getattr(signal, mode))
             process.wait(timeout=5)
         finally:
             if process.poll() is None:

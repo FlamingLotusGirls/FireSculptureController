@@ -58,8 +58,9 @@ keeps all LEDs black. The Serpent LED wire protocol still emits no bytes. FromIm
 remains a stub. Audio is removed from the active application. The Python 3 dependencies
 are Flask/Werkzeug, pyserial, and python-osc; gevent, PyAudio, SciPy, and NumPy are not needed.
 
-The root application has automated checks on Windows with Python 3.11 and 3.13. Pi,
-physical hardware, and systemd checks remain pending. See [headless deployment](deploy/README.md)
+The root application has automated checks on Windows with Python 3.11 and 3.13, and
+on the Raspberry Pi with Python 3.13.5. Physical hardware, systemd, and the Pi's Python 2
+fallback remain unverified. See [headless deployment](deploy/README.md)
 for the service template and [testing](TESTING.md) for the old/new byte comparisons,
 intentional differences, and remaining field checks.
 

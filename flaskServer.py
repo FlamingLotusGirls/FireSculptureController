@@ -89,7 +89,7 @@ def doCommand() -> Response:
 
 @flaskApp.errorhandler(500)
 def unexpectedRequestFailure(error: Exception) -> tuple[Response, int]:
-	# The main loop will stop producers and attempt relay OFF before exiting.
+	# The main loop will enter safe mode and stop producers before exiting.
 	failureEvent.set()
 	return jsonify({'error': 'Controller command failed; shutting down'}), 500
 
