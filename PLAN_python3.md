@@ -190,7 +190,22 @@ riskiest change in the port, because `serial.write()` needs `bytes` and the curr
   a bounded wait, wake and join the writer, then close the port. Serialize port changes
   with writes; closing the connection must not race a writer that reconnects it.
 
-**4. Stub HeartBeat's waveform; remove scipy and numpy.**
+**4. Stub HeartBeat's waveform; remove scipy and numpy — completed 2026-10-24.**
+
+Replaced the generated waveform with `[0.0]`, removed the scientific imports, and added
+a TODO and initialization log explaining the stub. HeartBeat's class, method signatures,
+input configuration, and pure-Python rendering code are unchanged. The README documents
+the inert pattern and no longer lists SciPy as a requirement. Neither SciPy nor NumPy was
+present in the active `requirements.txt`; the Python 2 dependencies remain preserved.
+
+Verification: with third-party packages disabled, the real input/messenger path drove
+360 manual timer pulses across Serpent's 42 LEDs on Python 3.11.15 and 3.13.17. Output
+remained `(0, 0, 0)` through position, brightness, and color changes; controls, rendering,
+and input cleanup passed. No active application imports SciPy or NumPy. All 75 Python 2
+snapshot hashes match. This intentionally changes HeartBeat's waveform; the Serpent LED
+wire protocol remains a separate empty stub.
+
+Original checklist:
 [LED.py:289-294](Patterns/LED.py#L289) is the only scipy use: a *fixed* waveform (`daub(10)`
 resampled to 50 points, twice), and `signal.wavelets` was removed from current SciPy, so the
 pattern can't import on a fresh install anyway. Per your direction, the heartbeat will come

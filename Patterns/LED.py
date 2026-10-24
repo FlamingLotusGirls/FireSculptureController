@@ -1,10 +1,6 @@
 import json
 import logging
 
-# Used to compute heartbeat. Importing these slows down load time noticeably.
-import scipy
-from scipy import signal
-
 from Patterns.PatternBase import PatternBase
 from ProgramModules.Timers import Timer
 
@@ -129,7 +125,7 @@ class LEDGrid(object):
 
 
 class HeartBeat(PatternBase):
-	"""An LED pattern emulating a heart beat."""
+	"""An LED heartbeat renderer with an inert placeholder waveform."""
 
 	# Difference in brightness per step (either increasing of decreasing).
 	BRIGHTNESS_DIFF = 0.1
@@ -143,7 +139,7 @@ class HeartBeat(PatternBase):
 		grid_size = args[0]
 		self.row_count = grid_size[0]
 		self.col_count = grid_size[1]
-		logger.info('HearBeat Pattern initialized (size=[%s,%s])',
+		logger.info('HeartBeat initialized with a stub waveform; LEDs remain off (size=[%s,%s])',
 			     self.row_count, self.col_count)
 		# A dictionary of input parameters rendered in the UI. Note
 		# that those are used by PatternBase.__init__() to construct
@@ -267,50 +263,9 @@ class HeartBeat(PatternBase):
 		self._led_values_index = 0
 
 	def _compute_heart_values(self):
-		"""Precompute heart brightness values.
-
-		The returned list reflects brightness values emulating a
-		beating heart. A visualization can iterate over the values
-		repeatedly for a good heart beat pattern.
-
-		We precompute them because the operation is expensive.
-
-		Returns:
-		  A list of precomputed heart beat values.
-		"""
-
-		values = []
-		# No variability as we are going to loop anyway.
-		rate_variability = [1.0, 1.0]
-		# The higher the sample rate, the more values we get. The
-		# current value was determined by trial-and-error.
-		sample_rate = 50.0
-		# To be honest, no idea what this means or affects the values.
-		daub_array = signal.wavelets.daub(10)
-		ecg_data_points = []
-		for r in rate_variability:
-			ecg_data_points.append(signal.resample(
-				daub_array, int(r*sample_rate)))
-		values = scipy.concatenate(ecg_data_points)
-		# Equalize data to fit into our expected brightness spectrum.
-		minimum = min(values)
-		maximum = max(values)
-		# We multiply by 2 to end up with a value greater than 1, but
-		# smaller than 2 (heuristically determined, no smart reason
-		# why).
-		factor = max(minimum, maximum)*2
-		# The brightness boost is computed based on the factor (a value
-		# between 2 and 1), multiplied by the user-configured maximum
-		# brightness of the heart (which is something between 1 and
-		# 100, so we divide it accordingly.)
-		brightness_boost = (factor - 1)*(self._max_brightness/100.0)
-		# Now we take the computed values, devide them by the
-		# precomputed factor, which equalizes them somewhat, and add
-		# the computed brightness boost. The addition allows us to set
-		# the heart to the proper brightness value and aligns all other
-		# values accordingly.
-		values = [(value/factor)+brightness_boost for value in values]
-		return values
+		"""Return zero brightness until the ECG beat source is connected."""
+		# TODO: replace this placeholder with values driven by the ECG beat recognizer.
+		return [0.0]
 
 	def _update_heart_position(self, row, col):
 		"""Set a new heart position and update related values."""

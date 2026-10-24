@@ -16,6 +16,9 @@ failures, and reports pending delivery/errors in adaptor status. See
 [serial delivery and safe mode](dev-notes.md#serial-delivery-and-safe-mode) for the exact
 behavior and limits.
 
+HeartBeat remains selectable with its existing controls, but its waveform is an inert
+placeholder: all LEDs stay black. The active application no longer needs SciPy or NumPy.
+
 ## Requirements
 
 Python 2.7 (2.7.6 on Win7 due to greenlet installation issues)
@@ -32,11 +35,6 @@ Server for js GUI:
 * gevent
 * greenlet
 * flask
-
-
-Patterns:
-
-* scipy (LED HeartBeat pattern)
 
 
 OSC server:
