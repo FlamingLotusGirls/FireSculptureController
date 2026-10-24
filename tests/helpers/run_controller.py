@@ -22,7 +22,7 @@ class RecordingSerialAdaptor(Adaptors.SerialAdaptor):
     def transmitData(self, data):
         success = super().transmitData(data)
         if success:
-            writes.append(data.decode('ascii'))
+            writes.append({'data': data.decode('ascii'), 'safe': app.safeMode.isSet()})
         return success
 Adaptors.SerialAdaptor = RecordingSerialAdaptor
 
@@ -56,6 +56,6 @@ print(json.dumps({
     'workers': [thread.name for thread in threads()
                 if thread.name.startswith(('timer-', 'serial-', 'osc-', 'http-server'))],
     'bindings': len(app.safeMode.bindings),
-    'last_write': writes[-1] if writes else None,
+    'writes': writes,
 }), flush=True)
 raise SystemExit(result)

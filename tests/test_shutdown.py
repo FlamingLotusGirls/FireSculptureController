@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.mark.parametrize('mode', ['SIGINT', 'SIGTERM', 'startup-failure', 'worker-failure'])
-def test_headless_shutdown_closes_workers_and_writes_off(mode, tmp_path):
+def test_headless_shutdown_closes_workers_without_writing_in_safe_mode(mode, tmp_path):
     command = [sys.executable, '-W', 'error', str(ROOT / 'tests/helpers/run_controller.py'), mode]
     lines = Queue()
     with subprocess.Popen(command, cwd=tmp_path, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -60,7 +60,6 @@ def test_headless_shutdown_closes_workers_and_writes_off(mode, tmp_path):
         assert summary['safe'] is True
         assert summary['workers'] == []
         assert summary['bindings'] == 0
-        config = json.loads((ROOT / 'sculptureDefinitions/aota.json').read_text())
-        mapping = config['modules']['poofers']['protocol']['mapping']
-        off = ''.join('!%02X%s0.' % (board, relay) for row in mapping for board, relay in row)
-        assert summary['last_write'] == off
+        assert all(not write['safe'] for write in summary['writes'])
+        if mode in ('startup-failure', 'worker-failure'):
+            assert summary['writes'] == []

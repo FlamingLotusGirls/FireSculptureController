@@ -34,7 +34,7 @@ class SafeModeController:
 						else:
 							function()
 					except Exception as error:
-						# An engine callback must not prevent the transport's all-OFF callback.
+						# An engine callback must not prevent cancellation of pending output.
 						logger.exception('Safe-mode callback failed')
 						if firstError is None:
 							firstError = error

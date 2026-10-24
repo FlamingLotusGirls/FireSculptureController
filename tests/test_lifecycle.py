@@ -74,6 +74,48 @@ def test_reload_all_sculptures_stops_old_patterns_inputs_and_manual_off_timers(c
         controller.doCommand(['loadSculpture', 'aota'])
 
 
+@pytest.mark.parametrize('name', ['aota', 'serpent', 'tympani'])
+def test_safe_mode_suppresses_controller_outputs_through_shutdown(controller, monkeypatch, name):
+    writes = []
+    transmit = Adaptors.SerialAdaptor.transmitData
+    def record_write(adaptor, data):
+        writes.append(data)
+        return transmit(adaptor, data)
+    monkeypatch.setattr(Adaptors.SerialAdaptor, 'transmitData', record_write)
+    controller.loadSculpture(name)
+    manager = controller.dataChannelManager
+    assert manager.flush()
+    # Startup may send only controls explicitly configured to ignore safe mode.
+    exempt = set()
+    for module in controller.sculptureConfig['modules'].values():
+        protocol = module['protocol']
+        if protocol.get('ignoreSafeMode'):
+            for board, relay in protocol['mapping'].values():
+                for value in (0, 1):
+                    exempt.add(('!%02X%s%s' % (board, relay, value)).encode('ascii'))
+    assert all(packet in exempt for data in writes for packet in data.split(b'.') if packet)
+    writes.clear()
+    pattern_id = controller.doCommand(['addPattern', 'poofers', 'AllPoof'])
+    pattern = controller.sculptureModules['poofers'].patterns[pattern_id]
+    instance, index = pattern.inputs.getInputAssignment('poofButton')
+    controller.setInputValue(instance, True, index)
+    controller.doCommand(['setItemState', 'poofers', [0, 0], True])
+    controller.doCommand(['setItemState', 'poofers', [0, 0], False])
+    assert manager.flush()
+    assert writes == []
+    controller.setSafeMode(False)
+    controller.doCommand(['setItemState', 'poofers', [0, 0], True])
+    assert manager.flush()
+    assert writes
+    with engineLock, app.safeMode.lock:
+        writes.clear()
+        controller.setSafeMode(True)
+    manager.allOff()
+    assert manager.flush()
+    assert controller.stop()
+    assert writes == []
+
+
 def test_removing_an_active_pattern_turns_its_outputs_off(controller):
     controller.loadSculpture('aota')
     pattern_id = controller.doCommand(['addPattern', 'poofers', 'AllPoof'])

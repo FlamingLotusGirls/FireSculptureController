@@ -18,7 +18,7 @@ HTTP/OSC tests bind to localhost on temporary ports.
 | File | Evidence |
 | --- | --- |
 | `tests/test_reference.py` | All 75 frozen file hashes; 47 unchanged configuration/GUI files; 59 application scenarios against the saved baseline and a fresh Python 2 run; HeartBeat controls and 360 steps across 42 LEDs with third-party packages disabled. |
-| `tests/test_serial.py` | Exact relay/Tympani bytes through loopback; 92 old/new protocol cases; initial OFF, safe-mode cancellation, Tympani exemption, failed/partial writes, reconnect, queue overflow/age, and bounded shutdown. |
+| `tests/test_serial.py` | Exact relay/Tympani bytes through loopback; 92 old/new protocol cases with explicit safe-mode suppression differences; silent startup, safe-mode cancellation, Tympani exemption, failed/partial writes, reconnect, queue overflow/age, and bounded shutdown. |
 | `tests/test_osc.py` | Actual UDP pulse/toggle/value routing, GUI address lists, bundles/timetags, pulse auto-OFF, cancellation, self-stop, and socket reuse. |
 | `tests/test_lifecycle.py` | All sculptures and listed patterns, Chase spacing/reverse, pattern removal, timers, reload, partial initialization, HTTP commands, SSE, and consistent state snapshots. |
 | `tests/test_shutdown.py` | Headless boot, SIGINT/SIGTERM handlers, startup/worker failure, final Angel OFF bytes, and joined workers in isolated processes. |
@@ -46,7 +46,8 @@ values, not a shared random seed. Writes are concatenated per bus within each sc
 write-call boundaries are ignored but byte order within a bus is preserved. The JSON
 stores ASCII strings losslessly because the current nonempty protocols are ASCII.
 The separate 92-case runner checks every mapped protocol output, representative values,
-and both safe-mode states.
+and both safe-mode states. Ordinary and exempt output must match Python 2 exactly;
+governed safe-mode cases must now produce empty output instead of the legacy packets.
 
 This proves the unchanged scenarios produce the same bytes. It does not measure real
 timer cadence, physical relay operation, or the new writer's recovery behavior. Live OSC
@@ -82,10 +83,10 @@ and snapshot manifest are reference inputs, not outputs to regenerate during tes
 | Serpent LED wire stub retained | Returns `b""` and sends no data; the real protocol is deferred. FromImage remains a stub too. |
 | OSC routing corrected | Each configured address reaches its own output. Empty GUI address lists remain empty; the default host is `0.0.0.0`. Tested with real local UDP. |
 | Numeric portability fixes | GUI numeric text-list bounds are converted before constraining; zero is a valid bound. RandomPulse supplies integer bounds. Recorded under step 2; no separate regression files for these two fixes. |
-| Explicit safe-mode OFF | Sculpture load, safe-mode entry, and reconnect while safe request OFF for every governed relay. Tympani's `ignoreSafeMode` button controls remain exempt. Tested independently of the old-byte harness. |
-| Delivery recovery | Failed OFF remains pending. Failed, full, or expired queues restore current state instead of replaying stale ON history. Serial tests exercise these paths. |
+| Silent safe mode | No governed output, including OFF, at startup, safe-mode entry, reconnect, or controller shutdown. Pending and cached output is discarded. Tympani's `ignoreSafeMode` button controls remain exempt. The 92 protocol cases compare ordinary/exempt bytes exactly and require empty output for governed safe-mode cases. |
+| Delivery recovery | Failed OFF remains pending while safe mode is off; safe-mode entry cancels it. Failed, full, or expired queues restore permitted current state instead of replaying stale ON history. Serial tests exercise these paths. |
 | Lifecycle cleanup | Reload/shutdown stop workers and release sockets/bindings. Removing a pattern recomputes output immediately. Future OSC waits can be cancelled on stop. |
-| Logging and headless launch | Console logging, boot-time sculpture selection, threaded HTTP/SSE, and orderly shutdown replace the old server behavior. Missing serial devices are reported while pending OFF delivery is retried. |
+| Logging and headless launch | Console logging, boot-time sculpture selection, threaded HTTP/SSE, and orderly shutdown replace the old server behavior. Missing serial devices are reported; governed output is not retried in safe mode. |
 
 See [delivery and safe-mode details](dev-notes.md#serial-delivery-and-safe-mode) for the
 limits: queue acceptance is not successful delivery, a driver write is not a hardware
@@ -122,7 +123,7 @@ values and the steps for adding an implementation. Mypy does not validate JSON a
 
 ## Recorded verification and remaining field checks
 
-Step 7 and 8 results are recorded in [the migration plan](PLAN_python3.md). The Windows checks
+Step 7, step 8, and the safe-mode correction results are recorded in [the migration plan](PLAN_python3.md). The Windows checks
 use Python 3.13.17 and Python 3.11.15, with Python 2.7.18 for the fresh reference. The
 3.11 run uses the same installed runtime/pytest packages via `PYTHONPATH`; it is not a
 separate clean dependency installation. Requirements are pinned to the verified local
@@ -133,7 +134,7 @@ mechanism. Actual Linux signal delivery and systemd behavior remain unverified.
 
 On the available Pi, exercise **all three** configurations with actual timers and serial
 I/O: GUI controls and patterns, numeric text-list inputs, RandomPoof, safe-mode entry,
-initial OFF, disconnect/reconnect, reload, Ctrl+C, and service stop/restart/reboot. Compare
+silent startup, disconnect/reconnect, reload, Ctrl+C, and service stop/restart/reboot. Compare
 captured bytes and inspect pulse durations/cadence separately. Capture through a suitable
 paired adaptor or the sculpture bus with relay loads unpowered; keep the gas side off
 for these checks. Record which physical paths were tested. Independently launch the

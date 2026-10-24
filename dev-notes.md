@@ -150,7 +150,7 @@ other event, such as safe mode being toggled, brings it about.
 
 ## Serial delivery and safe mode
 
-`DataChannelManager.send` returns whether an update was accepted by the writer. Each bus
+`DataChannelManager.send` returns whether an update was accepted or suppressed by safe mode. Each bus
 has one writer thread, a blocking queue, and a record of the latest requested bytes per
 output. Queue acceptance is separate from successful serial delivery. Protocol formatting,
 safe-mode changes, and writes share a lock; port reconfiguration is serialized with writes.
@@ -166,25 +166,27 @@ mode is off. This recovery policy intentionally differs from replaying every old
 A failed or partial write closes the connection. The writer retries connection every
 250 ms while delivery is pending, then sends the current state rather than the failed
 packet's history. An OFF remains in that state record even after the module has updated
-its own display/cache. No additional pattern update is required to retry it. The writer
+its own display/cache, unless safe mode cancels it. No additional pattern update is required to retry it. The writer
 also restores current state after an explicit port/baud change. An idle connection is
 not actively probed; a disconnect is detected by a write or an explicit reconfiguration.
 
-**New behavior:** loading a sculpture in safe mode, enabling safe mode, or reconnecting
-while safe sends OFF for every mapped relay output governed by safe mode, even if the
-software already believes it is off. These are the existing individual relay commands
-(`!0110.` for board 1, relay 1), not a new broadcast command. Pending governed commands
-are invalidated by generation, and OFF frames take priority over queued traffic. A faulty
-engine callback is reported but does not prevent the transport safe-mode callback.
+**Safe mode means no output.** Governed channels send neither ON nor OFF packets on
+startup, safe-mode entry, reconnect, or controller shutdown. This includes LED channels.
+Entering safe mode invalidates queued commands and discards cached output and pending
+OFF requests; suppressed commands are not replayed when safe mode is disabled. The
+synchronous protocol send path obeys the same rule. A faulty engine callback is reported
+but does not prevent the transport cancellation callback. Safe mode does not turn off
+an already active relay or recall bytes already handed to the driver.
 
 **Tympani's exception is retained.** The `buttons` module uses `ignoreSafeMode: true` for
 its button-disable controls (`disableA` and `disableR`). Those controls remain operable in
 safe mode. They are not forcibly cleared or cancelled with flame commands, including on
-a shared bus. Neither Tympani LED controls nor the empty Serpent LED stub are included in
-relay all-OFF handling. The Serpent stub continues to emit no bytes.
+a shared bus. Tympani LED controls have no exemption and are suppressed in safe mode.
+The Serpent stub continues to emit no bytes.
 
-On manager shutdown, new updates are rejected, governed OFF frames are requested, and
-each writer gets up to two seconds to finish delivery. It is then woken and joined; the
+On manager shutdown, new updates are rejected. If safe mode is enabled, governed output
+is cancelled without an OFF packet; otherwise the manager requests relay OFF frames.
+Each writer gets up to two seconds to finish remaining permitted delivery, then is woken and joined; the
 writer closes its own connection as it exits. An undelivered state is logged and shutdown
 returns `False`; an unresponsive writer is an error rather than permission to close a port
 underneath it.
@@ -194,7 +196,8 @@ replacing shared managers; see the lifecycle section below.
 Status fields `deliveryPending` and `writerError` distinguish accepted work from completed
 writes; `lastError` reports adaptor I/O failure. `connected` means the serial connection is
 open, not that the relay hardware acknowledged anything. Bytes already handed to the driver
-cannot be recalled. A disconnected bus cannot receive OFF until communication returns,
+cannot be recalled. A disconnected bus can receive a pending OFF only after communication
+returns and only if safe mode has not cancelled it,
 and a partial write may have already affected the hardware. There is no acknowledgement
 or exactly-once delivery in these protocols.
 
@@ -254,7 +257,7 @@ cannot observe a partly updated pattern or module. The serial writer retains its
 safe-mode lock; lock order is controller, safe mode, then adaptor. It never calls back
 into the controller.
 
-Reload holds the controller lock, requests safe mode/OFF, and stops old modules, inputs,
+Reload holds the controller lock, enables silent safe mode, and stops old modules, inputs,
 timers, and serial writers before installing new managers. Timer and OSC workers waiting
 for the controller lock can cancel that wait, preventing shutdown from joining a worker
 that is waiting for the lock shutdown holds. Old safe-mode bindings and messenger

@@ -137,14 +137,15 @@ Converted protocol output and serial writes to bytes, added `serial_for_url` sup
 integer baud-rate updates, and replaced the spinning writer with a bounded blocking
 queue. Failed delivery, full queues, and expired backlog restore current output state;
 failed OFF commands retry without another module update. Safe-mode transitions cancel
-queued governed relay commands and prioritize all-OFF while retaining Tympani's exempt
+queued governed commands and suppress all output while retaining Tympani's exempt
 controls. Serial shutdown is bounded, and the writer owns closing its connection.
 Delivery semantics and limits are documented in `dev-notes.md`.
 
 Verification: 16 focused transport checks pass with warnings treated as errors on Python
 3.11.15 and 3.13.17, using `loop://` and controlled failures. The unchanged Python 2
-protocols and Python 3 protocols produce identical bytes across 92 cases covering all
-mapped outputs in all three sculptures, both safe-mode states, and representative values.
+protocol comparison covers 92 cases across all mapped outputs in all three sculptures,
+both safe-mode states, and representative values. Following the safe-mode correction,
+ordinary/exempt output must still match exactly; governed safe-mode output must be empty.
 The Serpent LED protocol remains empty. All 75 preserved snapshot hashes match; sculpture
 configurations and GUI assets remain unchanged. The 59-scenario full-application comparison
 still awaits the later dependency/server changes; physical serial and Pi checks are pending.
@@ -169,23 +170,23 @@ riskiest change in the port, because `serial.write()` needs `bytes` and the curr
   [DataChannelManager.py](ProgramModules/DataChannelManager.py) with a blocking `queue.Queue`.
   The current loop spins a core at 100% and races on `self.data +=`.
 - Make queue acceptance distinct from a successful serial write. A failed OFF must remain
-  pending or be regenerated during reconnect; advancing `currentOutputState` must not
+  pending or be regenerated during reconnect while safe mode is off; advancing `currentOutputState` must not
   suppress its retry. On reconnect, resynchronize current required state rather than
   replaying obsolete ON commands. Surface delivery failures in the log/status.
-- Coordinate safe-mode changes and writes: invalidate unsent ON commands for non-exempt
-  relay channels and prioritize their OFF frames. Prevent a concurrent producer from
-  enqueueing an old-generation ON after invalidation. Preserve ordering within each bus
+- Coordinate safe-mode changes and writes: invalidate all unsent commands and cached
+  state for non-exempt channels, including OFF and LED output. Prevent concurrent producers
+  from enqueueing output while safe mode is enabled. Preserve ordering within each bus
   and define a bounded backlog policy so delayed flame actions are not replayed later.
-- **Documented behavior change: all-OFF in safe mode.** On sculpture load with safe mode
-  enabled, on enabling safe mode, and on reconnect while safe, explicitly send OFF for
-  every mapped relay output governed by safe mode, even if cached state already says OFF.
-  This is a set of existing per-address OFF commands, not a new broadcast wire command.
+- **Corrected requirement: safe mode sends no output.** No governed ON or OFF packets
+  are sent at startup, safe-mode entry, reconnect, or controller shutdown. Discard pending
+  commands and cached state so they cannot be replayed after safe mode is disabled.
+  This supersedes the earlier all-OFF decision; safe mode does not switch active relays off.
 - **Keep Tympani's `ignoreSafeMode` behavior.** Its button-disable channel intentionally
   bypasses safe-mode gating. Exempt channels are not forcibly cleared or filtered by the
-  new all-OFF behavior, including when they share a serial adaptor with flame outputs.
+  safe-mode suppression, including when they share a serial adaptor with flame outputs.
 - Document the boundary: unsent application commands can be cancelled; bytes already
   handed to the driver or hardware cannot be recalled. A successful write is not a relay
-  acknowledgement, and a disconnected bus cannot deliver OFF until communication returns.
+  acknowledgement. OFF retries require communication to return and safe mode to remain off.
 - Set a finite serial write timeout. Stop producers, finish the required OFF attempt with
   a bounded wait, wake and join the writer, then close the port. Serialize port changes
   with writes; closing the connection must not race a writer that reconnects it.
@@ -274,7 +275,8 @@ SIGINT/SIGTERM and unexpected errors reach shared cleanup; delivery failure exit
 
 Verification: 40 tests pass with warnings treated as errors on Python 3.11.15 and 3.13.17.
 They include all-three-sculpture reloads with live timers, local HTTP/SSE and OSC, partial
-startup failure, signal handlers, worker failure, OFF delivery and joined cleanup. All
+startup failure, signal handlers, worker failure, and joined cleanup. Safe-mode shutdown
+now suppresses output instead of requesting OFF (see the correction below). All
 59 full-application byte scenarios match a fresh Python 2 run on both Python 3 versions
 (manual clocks and recording transport); the 92 protocol cases also pass. All 75 snapshot
 hashes match; sculpture configuration and GUI assets remain unchanged.
@@ -287,15 +289,15 @@ Original checklist:
 - Make `debug` False, add `--host` (default `0.0.0.0`) and `--log-level`.
 - Add `--sculpture <id>` to load a sculpture at boot. Today someone must click one in the
   browser. The SSE bindings added inside the `doCommand` route move into a shared helper so
-  boot-time loading wires them too. Safe mode stays on at boot, with the explicit
-  non-exempt relay all-OFF behavior from step 3.
+  boot-time loading wires them too. Safe mode stays on at boot and suppresses all
+  non-exempt output, as specified in step 3.
 - Resolve `config.json` and `sculptureDefinitions/` relative to the file, not the current
   directory, so systemd can launch it from anywhere.
 - Add `deploy/firesculpture.service`, a systemd unit running as a user in the `dialout`
   group. It restarts on failure and logs to journald.
 - Add orderly SIGTERM, Ctrl+C, and exception cleanup. Stop incoming commands and pattern
-  producers, request safe mode/all-OFF, complete the bounded serial shutdown, and release
-  resources. A restart starts in safe mode; it does not establish that hardware received OFF.
+  producers, enable safe mode to cancel governed output, complete the bounded serial
+  shutdown, and release resources. Shutdown and restart do not send governed OFF packets.
 - Make sculpture reset/reload clean up old safe-mode bindings, messenger subscriptions,
   OSC sockets, and timer threads, including the per-item auto-OFF timers. Wait for callbacks
   to finish before replacing shared managers; never join a thread from its own callback.
@@ -319,7 +321,8 @@ the committed reference baseline.
 
 Verification: all 46 tests pass, with no skips and warnings treated as errors, on
 Python 3.11.15 and 3.13.17. The 59 application scenarios match the saved reference and
-a fresh Python 2.7.18 run; the 92 protocol cases match too. All 75 snapshot hashes and
+a fresh Python 2.7.18 run; the 92 protocol cases matched before the safe-mode correction
+described below. All 75 snapshot hashes and
 47 active configuration/GUI files match. Active-source compilation/import checks pass
 on both Python 3 versions. The pinned requirements match the installed environment and
 `pip check` passes. The 3.11 run shares the installed runtime/pytest packages through
@@ -335,7 +338,7 @@ Original checklist:
   (pytest, mypy, `types-pyserial`).
 - Rewrite [README.md](README.md) (Python 3, install, running headless, systemd, all three
   sculptures, and how to launch the preserved Python 2 version) and fix [dev-notes.md](dev-notes.md).
-  Explain when all-OFF is sent, the delivery limits, and Tympani's retained `ignoreSafeMode`
+  Explain safe-mode output suppression, the delivery limits, and Tympani's retained `ignoreSafeMode`
   exception. Record intentional differences from Python 2 beside the comparison results.
 - Exclude `py2/` and its environment from Python 3 compilation, pytest discovery, mypy,
   packaging, and automatic source transformations. The separate baseline runner invokes
@@ -388,6 +391,23 @@ are not tangled with the porting diff. Keep annotations readable.
   coverage rule. Mypy still checks the concrete types and structural interfaces.
 - Hints are annotation-only, with no runtime effect.
 
+**Safe-mode correction — completed 2026-10-24.**
+
+The earlier all-OFF decision is superseded: safe mode suppresses all non-exempt output,
+including ON, OFF, LED, startup, reconnect, and controller-shutdown packets. Queued commands,
+cached state, and pending OFF requests are discarded on entry, so leaving safe mode cannot
+replay them. Tympani's `ignoreSafeMode` button controls remain exempt, including on a shared
+bus. Safe mode does not switch off an already active relay.
+
+Verification: mypy passes for all 26 active source files. All 50 tests pass on Python
+3.11.15 and 3.13.17, with warnings as errors and no skips. The 59 application scenarios
+still match the frozen Python 2 baseline. The 92 protocol cases retain exact comparisons
+for ordinary/exempt output and explicitly require silence for governed safe-mode output.
+Tests cover all three sculptures, manual/pattern commands, queued ON/OFF cancellation,
+reconnect/reconfiguration, immediate safe-mode exit, and shutdown. The frozen Python 2
+tree, sculpture definitions, and GUI assets remain unchanged. Pi/hardware validation
+remains pending.
+
 ## Deferred future work — outside today's scope
 
 **9. Serpent Mother LED protocol.** Keep the stub for today's work. Resume this step only
@@ -437,7 +457,7 @@ requirements above.
 | S3 | **Blocking-queue serial writer** (step 3). | Frees a full CPU core on the Pi and removes a data race. | Write timing, cancellation, failure recovery, and shutdown need the explicit behavior in step 3. | **Yes**, it's already in the plan. |
 | S4 | **`serial_for_url` / `loop://` dev mode** (step 3). | Develop and test on a laptop with no hardware, and assert exact relay bytes. | None. | **Yes**, it's already in the plan. |
 | S5 | **Simplify the SSE encoder** in `flaskServer.py`. | `ServerSentEvent` builds a dict keyed by its own values (`None` appears twice), which works by luck. It reduces to `f"data: {payload}\n\n"`. | None. | **Yes.** |
-| S6 | **Auto-load the sculpture at boot** (`--sculpture`). | Headless with no browser click needed. | Safe mode starts enabled and sends non-exempt relay OFF frames; delivery still depends on the serial connection. | **Yes**, it's already in the plan. |
+| S6 | **Auto-load the sculpture at boot** (`--sculpture`). | Headless with no browser click needed. | Safe mode starts enabled and suppresses all non-exempt output, including OFF packets. | **Yes**, it's already in the plan. |
 | S7 | **Re-indent tabs to 4 spaces.** | PEP 8, and removes the tab/space mix in four files. | A whole-file diff that destroys `git blame` and hides the real port changes. | **No** in this branch. If wanted, do it as a single mechanical last commit. |
 | S8 | **Replace the hand-rolled `Timer`** ([Timers.py](ProgramModules/Timers.py)) with `threading.Timer` or asyncio. | Less custom code. | It has `refresh` / `changeInterval` semantics that patterns depend on, and no tests protect them. | **No replacement.** Preserve timing semantics; make the shutdown fixes required in step 6. |
 | S9 | **Dataclasses, asyncio, f-strings/pathlib sweep.** (Type hints are now *in* the plan, as step 8.) | Looks modern. | Large diff, no behaviour gain. | **No**, except f-strings and pathlib in code I'm already touching. |
@@ -491,7 +511,7 @@ keep additional tests focused on behavior and failure paths, not one test per me
    - Relay board 1, channel 1, ON must be `!0111.` and OFF `!0110.` (no spaces); include
      Tympani LED packets as well as relay packets. Preserve each sculpture's mappings.
    - Record intentional differences explicitly: removal of audio, the inert HeartBeat
-     waveform, corrected OSC routing and portability bugs, new all-OFF frames, and corrected
+     waveform, corrected OSC routing and portability bugs, silent safe mode, and corrected
      failure/lifecycle behavior. Compare unchanged behavior exactly; verify changed behavior
      against its stated requirement. Do not treat Python 2 bugs as required compatibility.
    - For today's work, verify Serpent LED output remains empty in both versions, including
@@ -509,8 +529,8 @@ keep additional tests focused on behavior and failure paths, not one test per me
      representative behavior rather than stopping at construction. Check Chase's integer
      spacing and that stubbed HeartBeat produces `(0, 0, 0)` without scientific dependencies.
    - Read exact relay and Tympani LED bytes back through `loop://`.
-   - Check safe-mode entry and initial load produce OFF for every non-exempt mapped relay.
-     Exercise `setItemState`, AllPoof, and a queued ON crossing a safe-mode transition;
+   - Check safe-mode entry and initial load send no bytes for non-exempt channels.
+     Exercise `setItemState`, AllPoof, queued ON/OFF, reconnect, and shutdown while safe;
      separately verify Tympani's `ignoreSafeMode` controls retain their original behavior.
    - With a controllable failing adaptor, check failed OFF delivery, reconnect/state
      resynchronization, cancellation of stale ON commands, and bounded writer shutdown.
@@ -526,10 +546,10 @@ keep additional tests focused on behavior and failure paths, not one test per me
      basic multi-input using the GUI's numeric text lists to exercise the portability fixes.
    - Run actual timers and serial I/O on the Pi, compare captured packets with the baseline,
      and inspect cadence and pulse durations separately from deterministic byte equivalence.
-     Check safe-mode transitions, initial OFF frames, unplug/reconnect, repeated loads,
+     Check silent startup and safe-mode transitions, unplug/reconnect, repeated loads,
      Ctrl+C, and service stop/restart. Confirm no spinning writer CPU.
    - Install the service, reboot, and browse to `http://<pi>:8080` from another machine.
-     Confirm safe mode is enabled and the expected OFF commands are emitted at boot.
+     Confirm safe mode is enabled and no non-exempt commands are emitted at boot.
    - Capture serial output using a suitable paired-adaptor setup or the sculpture bus with
      relay loads unpowered. Test real poofers only with the propane/gas side off during
      these checks. Record which configurations and hardware paths were actually exercised;

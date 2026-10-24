@@ -39,22 +39,13 @@ def read_exact(adaptor, count):
 
 
 @pytest.mark.parametrize("name", ["aota", "serpent", "tympani"])
-def test_initial_safe_mode_sends_every_governed_relay_off(name):
+def test_initial_safe_mode_sends_nothing(name):
     config = config_for(name)
     manager = DataChannelManager(config)
     try:
         assert manager.flush()
-        expected = {bus: b"" for bus in config["adaptors"]}
-        for module in config["modules"].values():
-            protocol = module["protocol"]
-            if protocol["type"] == "flgRelay" and not protocol.get("ignoreSafeMode"):
-                for row in protocol["mapping"]:
-                    for board, relay in row:
-                        expected[module["adaptor"]] += ("!%02X%s0." % (board, relay)).encode("ascii")
-        for bus, data in expected.items():
-            adaptor = manager.adaptors[bus].adaptor
-            assert read_exact(adaptor, len(data)) == data
-            assert adaptor.connection.in_waiting == 0
+        for writer in manager.adaptors.values():
+            assert writer.adaptor.connection.in_waiting == 0
     finally:
         assert manager.stop()
     assert all(not writer.is_alive() for writer in manager.adaptors.values())
@@ -94,17 +85,31 @@ def test_safe_mode_cancels_queued_on_but_keeps_tympani_exemption():
         with app.safeMode.lock:
             app.safeMode.set(False)
             manager.send("poofers", [([0, 0], True)])
+            manager.send("poofers", [([0, 0], False)])
             manager.send("buttons", [("disableA", True)])
+            manager.send("leds", [("flash", True)])
             app.safeMode.set(True)
-            manager.send("poofers", [([0, 1], True)])
+            manager.send("poofers", [([0, 1], True), ([0, 1], False)])
+            manager.send("leds", [("flash", False)])
         assert manager.flush()
         data = writer.adaptor.connection.read(writer.adaptor.connection.in_waiting)
-        packets = [packet + b"." for packet in data.split(b".") if packet]
-        assert b"!0311." not in packets
-        assert b"!0321." not in packets
-        assert b"!0471." in packets  # Button-disable control remains exempt.
-        assert packets[0] == b"!0310."
-        assert b"!0320." in packets
+        assert data == b"!0471."  # Only the exempt button-disable control is sent.
+        assert manager.adaptors["ledBus"].adaptor.connection.in_waiting == 0
+        # Reconfiguration in safe mode restores only the exempt control.
+        assert manager.updateSerialConnection("flameBus", {"baudrate": 38400})
+        assert manager.updateSerialConnection("ledBus", {"baudrate": 38400})
+        assert manager.flush()
+        assert read_exact(writer.adaptor, 6) == b"!0471."
+        assert writer.adaptor.connection.in_waiting == 0
+        assert manager.adaptors["ledBus"].adaptor.connection.in_waiting == 0
+        # Leaving safe mode must not resurrect commands suppressed while it was on.
+        app.safeMode.set(False)
+        assert manager.updateSerialConnection("flameBus", {"baudrate": 19200})
+        assert manager.updateSerialConnection("ledBus", {"baudrate": 19200})
+        assert manager.flush()
+        assert read_exact(writer.adaptor, 6) == b"!0471."
+        assert writer.adaptor.connection.in_waiting == 0
+        assert manager.adaptors["ledBus"].adaptor.connection.in_waiting == 0
     finally:
         manager.stop()
 
@@ -166,10 +171,10 @@ def test_failed_off_retries_without_another_module_update():
         writer.stop()
 
 
-def test_reconnect_discards_obsolete_on_history_and_resends_off_while_safe():
+def test_safe_mode_discards_failed_delivery_without_reconnect_output():
     adaptor = FailingAdaptor()
     writer = make_writer(adaptor)
-    binding = app.safeMode.addBinding(writer.allOff)
+    binding = app.safeMode.addBinding(writer.suppressOutput)
     try:
         app.safeMode.set(False)
         adaptor.reconnectAllowed.clear()
@@ -180,7 +185,13 @@ def test_reconnect_discards_obsolete_on_history_and_resends_off_while_safe():
         app.safeMode.set(True)
         adaptor.reconnectAllowed.set()
         assert writer.flush()
-        assert adaptor.frames == [b"!0110.!0120."]
+        assert adaptor.frames == []
+        app.safeMode.set(False)
+        assert writer.flush()
+        assert adaptor.frames == []
+        writer.send("flame", [([0, 1], True)])
+        assert writer.flush()
+        assert adaptor.frames == [b"!0121."]
     finally:
         app.safeMode.removeBinding(binding)
         writer.stop()
@@ -216,11 +227,35 @@ def test_idle_writer_blocks_and_shutdown_closes_after_join():
     assert writer.send("flame", [([0, 0], True)]) is False
 
 
+def test_safe_mode_cancels_pending_all_off_even_after_immediate_exit():
+    adaptor = FailingAdaptor()
+    writer = make_writer(adaptor)
+    binding = app.safeMode.addBinding(writer.suppressOutput)
+    try:
+        with app.safeMode.lock:
+            app.safeMode.set(False)
+            writer.send("flame", [([0, 0], True)])
+            writer.allOff()
+            app.safeMode.set(True)
+            writer.allOff()
+            writer.send("flame", [([0, 1], False)])
+            app.safeMode.set(False)
+        assert writer.flush()
+        assert adaptor.frames == []
+        writer.send("flame", [([0, 1], True)])
+        assert writer.flush()
+        assert adaptor.frames == [b"!0121."]
+    finally:
+        app.safeMode.removeBinding(binding)
+        writer.stop()
+
+
 def test_failed_shutdown_is_bounded_and_reports_undelivered_state():
     adaptor = FailingAdaptor()
     writer = make_writer(adaptor)
     adaptor.fail = True
     adaptor.reconnectAllowed.clear()
+    app.safeMode.set(False)
     writer.allOff()
     start = monotonic()
     assert writer.stop(timeout=0.1) is False
@@ -242,7 +277,7 @@ def test_serial_rejects_text_and_does_not_reopen_after_stop():
     assert not adaptor.transmitData(b"!0111.")
 
 
-def test_protocol_bytes_match_unchanged_python2_for_all_mapped_outputs(python2, python2_environment):
+def test_protocol_bytes_match_python2_except_suppressed_safe_mode(python2, python2_environment):
     script = str(ROOT / "tools/record_protocol_bytes.py")
     old = subprocess.check_output(
         [python2, script, str(ROOT / "py2")], env=python2_environment, text=True, timeout=30,
@@ -250,7 +285,14 @@ def test_protocol_bytes_match_unchanged_python2_for_all_mapped_outputs(python2, 
     new = subprocess.check_output([sys.executable, script, str(ROOT)], text=True, timeout=30)
     old_data, new_data = json.loads(old), json.loads(new)
     assert len(old_data) == 92
-    assert new_data == old_data
+    assert new_data.keys() == old_data.keys()
+    for name, old_bytes in old_data.items():
+        sculpture, module, safe, value = name.split("/")
+        protocol = config_for(sculpture)["modules"][module]["protocol"]
+        if safe == "safe=True" and not protocol.get("ignoreSafeMode"):
+            assert new_data[name] == "", name
+        else:
+            assert new_data[name] == old_bytes, name
 
 
 def test_faulty_engine_callback_cannot_prevent_transport_safe_mode():
@@ -269,8 +311,7 @@ def test_faulty_engine_callback_cannot_prevent_transport_safe_mode():
                 app.safeMode.set(True)
         assert manager.flush()
         data = adaptor.connection.read(adaptor.connection.in_waiting)
-        assert b"!0111." not in data
-        assert data.startswith(b"!0110.")
+        assert data == b""
     finally:
         manager.stop()
 
@@ -298,7 +339,12 @@ def test_synchronous_protocol_reports_failure_without_retaining_stale_on():
     app.safeMode.set(True)
     adaptor.fail = False
     assert protocol.send([([0, 0], False)]) is True
-    assert adaptor.frames == [b"!0110."]
+    assert adaptor.frames == []
+    # Direct transmission of an already encoded packet must also obey safe mode.
+    protocol.dataCache = b"!0111."
+    assert protocol.transmitData()
+    assert protocol.dataCache == b""
+    assert adaptor.frames == []
 
 
 def test_serpent_stub_never_enqueues_bytes():

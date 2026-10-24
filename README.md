@@ -39,15 +39,17 @@ is retried. OSC uses `python-osc` and defaults to `0.0.0.0:8000` when an OSC inp
 
 ## Safe mode and shutdown
 
-Startup and sculpture loads begin in safe mode. Loading, enabling safe mode, and
-reconnecting while safe request OFF for every governed relay, even if its cached state
-already says OFF. Tympani's `ignoreSafeMode` button-disable controls retain their exemption.
+Startup and sculpture loads begin in safe mode. Safe mode sends no output for governed
+channels: no ON, OFF, startup, reconnect, or shutdown packets. Pending commands and cached
+state are discarded when entering safe mode. Tympani's `ignoreSafeMode` button-disable
+controls retain their exemption. Safe mode does not turn off an already active relay.
 
 The serial writer blocks when idle, retries current state after failed delivery, and
 reports pending delivery/errors in adaptor status. Ctrl+C and SIGTERM stop inputs,
-timers, OSC, and serial workers after attempting OFF delivery. A successful write is
-not a hardware acknowledgement; disconnected hardware cannot receive OFF until the
-connection returns. See [delivery and lifecycle details](dev-notes.md#serial-delivery-and-safe-mode).
+timers, OSC, and serial workers after entering safe mode and cancelling governed output.
+While safe mode is off, failed OFF delivery is retried; entering safe mode cancels that
+retry too. A successful write is not a hardware acknowledgement.
+See [delivery and lifecycle details](dev-notes.md#serial-delivery-and-safe-mode).
 
 ## Current scope
 

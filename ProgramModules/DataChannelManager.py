@@ -1,7 +1,7 @@
 """Encode module updates and deliver them through one blocking writer per serial bus.
 
-Normal traffic preserves command order. Recovery replaces queued history with the most
-recent state, so a failed OFF cannot be forgotten and old pulses are not replayed.
+Normal traffic preserves command order. Recovery restores current state instead of old
+pulses. Safe mode cancels governed output, including pending OFF delivery.
 """
 from __future__ import annotations
 from .Interfaces import Adaptor, ProtocolEncoder
@@ -32,10 +32,10 @@ class PendingWrite:
 class ChannelState:
 	def __init__(self, protocol: ProtocolEncoder) -> None:
 		self.protocol = protocol
-		self.protected = isinstance(protocol, Protocols.FlgRelayProtocol) and not protocol.ignoreSafeMode
+		self.protected = not protocol.ignoreSafeMode
 		self.generation = 0
 		self.values: dict[AddressKey, bytes] = {}
-		if self.protected:
+		if self.protected and isinstance(protocol, Protocols.FlgRelayProtocol):
 			self.setOff()
 
 	def setOff(self) -> None:
@@ -77,6 +77,8 @@ class AdaptorThread(Thread):
 			if not self.accepting:
 				return False
 			channel = self.channels[moduleId]
+			if channel.protected and app.safeMode.isSet():
+				return True  # Suppressed, not queued for later delivery.
 			parts = []
 			for address, value in commands:
 				key = tuple(address) if isinstance(address, list) else address
@@ -99,12 +101,25 @@ class AdaptorThread(Thread):
 				self._requestResync('Serial queue full; replacing history with current state')
 			return True  # Accepted, not acknowledged by the hardware.
 
+	def suppressOutput(self) -> None:
+		"""Cancel governed output without sending ON or OFF, or replaying it later."""
+		with self.lock:
+			for moduleId, channel in self.channels.items():
+				if channel.protected:
+					channel.generation += 1
+					channel.values.clear()
+					self.offPending.pop(moduleId, None)
+			self._wake()
+
 	def allOff(self) -> None:
 		with self.lock:
 			if not self.accepting:
 				return
+			if app.safeMode.isSet():
+				self.suppressOutput()
+				return
 			for moduleId, channel in self.channels.items():
-				if channel.protected:
+				if channel.protected and isinstance(channel.protocol, Protocols.FlgRelayProtocol):
 					channel.generation += 1
 					channel.setOff()
 					self.offPending[moduleId] = channel.snapshot()
@@ -143,25 +158,26 @@ class AdaptorThread(Thread):
 		return False
 
 	def _restoreLatestState(self) -> bool:
-		if self.needsConnect:
+		channels = [channel for channel in self.channels.values()
+			if not (channel.protected and app.safeMode.isSet())]
+		if self.needsConnect and any(channel.values for channel in channels):
 			if not self.adaptor.connect():
 				return False
 			self.needsConnect = False
-		# Restore governed relays first; exempt controls and LEDs keep their own state.
-		channels = sorted(self.channels.values(), key=lambda channel: not channel.protected)
-		for channel in channels:
-			if channel.protected and app.safeMode.isSet():
-				channel.setOff()
+		# Safe mode permits only explicitly exempt channels to restore their state.
+		for channel in sorted(channels, key=lambda channel: not channel.protected):
 			if not self._write(channel.snapshot()):
 				return False
 		self.offPending.clear()
 		self.needsResync = False
+		self.needsConnect = False
 		self.lastError = None
 		return True
 
 	def _writePendingOff(self) -> bool:
 		for moduleId, data in list(self.offPending.items()):
-			if not self._write(data):
+			channel = self.channels[moduleId]
+			if not (channel.protected and app.safeMode.isSet()) and not self._write(data):
 				return False
 			del self.offPending[moduleId]
 		return True
@@ -190,7 +206,8 @@ class AdaptorThread(Thread):
 							continue
 						if packet is not None and not self.needsResync:
 							channel = self.channels[packet.moduleId]
-							cancelled = channel.protected and packet.safeGeneration != app.safeMode.generation
+							cancelled = channel.protected and (app.safeMode.isSet()
+								or packet.safeGeneration != app.safeMode.generation)
 							if packet.generation == channel.generation and not cancelled:
 								if monotonic() - packet.created > self.MAX_QUEUE_AGE:
 									self._requestResync('Serial backlog expired; replacing history with current state')
@@ -262,9 +279,9 @@ class DataChannelManager:
 				writer = self.adaptors[config['adaptor']]
 				writer.registerChannel(moduleId, protocol)
 				self.moduleAdaptors[moduleId] = writer
-			self.safeModeBinding = app.safeMode.addBinding(self.allOff)
+			self.safeModeBinding = app.safeMode.addBinding(self.suppressOutput)
 			if app.safeMode.isSet():
-				self.allOff()
+				self.suppressOutput()
 			for writer in self.adaptors.values():
 				writer.start()
 		except Exception:
@@ -286,6 +303,10 @@ class DataChannelManager:
 	def allOff(self) -> None:
 		for writer in self.adaptors.values():
 			writer.allOff()
+
+	def suppressOutput(self) -> None:
+		for writer in self.adaptors.values():
+			writer.suppressOutput()
 
 	def flush(self, timeout: float = 2.0) -> bool:
 		deadline = monotonic() + timeout

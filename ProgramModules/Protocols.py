@@ -38,13 +38,19 @@ class ProtocolBase():
 				self.translateAddr = self.translateOneDimensionalListAddr
 	def transmitData(self) -> bool:
 		# This helper is synchronous; the manager owns queued delivery and retries.
-		data = self.dataCache
-		self.dataCache = b""
-		# Only the synchronous path has an adaptor; the manager uses this as an encoder.
-		return cast(Adaptor, self.adaptorObj).transmitData(data)
+		with app.safeMode.lock:
+			data = self.dataCache
+			self.dataCache = b""
+			if app.safeMode.isSet() and not self.ignoreSafeMode:
+				return True
+			# Only the synchronous path has an adaptor; the manager uses this as an encoder.
+			return cast(Adaptor, self.adaptorObj).transmitData(data)
 
 	def send(self, data: OutputCommands) -> bool:
 		with app.safeMode.lock:
+			if app.safeMode.isSet() and not self.ignoreSafeMode:
+				self.dataCache = b""
+				return True
 			self.dataCache = self.formatCommands(data)
 			if self.dataCache:
 				return self.transmitData()
