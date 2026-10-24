@@ -89,6 +89,21 @@ def test_removing_an_active_pattern_turns_its_outputs_off(controller):
     assert controller.dataChannelManager.flush()
 
 
+def test_chase_spacing_and_reverse_with_three_pulses(controller):
+    controller.loadSculpture('tympani')
+    with engineLock:  # Keep real timer callbacks from advancing this observed step.
+        pattern_id = controller.doCommand(['addPattern', 'poofers', 'Chase'])
+        pattern = controller.sculptureModules['poofers'].patterns[pattern_id]
+        for channel, value in [('numberOn', 1), ('numberPulses', 3)]:
+            instance, index = pattern.inputs.getInputAssignment(channel)
+            controller.setInputValue(instance, value, index)
+        # Fourteen outputs split into three pulses: spacing must be four outputs.
+        assert [col for col in range(14) if pattern.getState(0, col)] == [0, 4, 8]
+        instance, index = pattern.inputs.getInputAssignment('reverse')
+        controller.setInputValue(instance, True, index)
+        assert [col for col in range(14) if pattern.getState(0, col)] == [5, 9, 13]
+
+
 def test_timer_refresh_interval_and_self_stop():
     fired = Queue()
     timer = Timer(False, 1000, lambda: fired.put(monotonic()))
@@ -169,6 +184,7 @@ def test_http_load_state_sse_and_file_paths(controller, monkeypatch, tmp_path):
             assert page.status_code == 200
         assert client.post('/doCommand', json=[]).status_code == 400
         assert client.post('/doCommand', json=['loadSculpture', 'aota']).status_code == 200
+        assert client.post('/doCommand', json=['addPattern', 'poofers', 'AllPoof']).status_code == 200
         assert client.get('/getData').json['safeMode'] is True
         response = client.get('/dataStream', buffered=False)
         try:

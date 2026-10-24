@@ -1,0 +1,36 @@
+[project]
+name = "FireSculptureController"
+version = "0.1.0"
+description = "Controller for Flaming Lotus Girls fire sculptures"
+requires-python = ">=3.11"
+dynamic = ["dependencies"]
+
+# Run the application from its source checkout; no wheel build is part of deployment.
+# Explicit discovery keeps the frozen Python 2 tree out of setuptools packaging.
+[tool.setuptools]
+py-modules = ["SculptureController", "flaskServer", "sendOscTest"]
+
+[tool.setuptools.packages.find]
+include = ["Inputs", "Patterns", "ProgramModules"]
+exclude = ["py2*", ".deps-py2*", ".venv*", "tests*", "tools*"]
+namespaces = false
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+norecursedirs = ["py2", ".deps-py2", ".venv*", "artifacts", ".git", "__pycache__"]
+addopts = "--strict-config --strict-markers -ra"
+filterwarnings = ["error"]
+
+# Step 8 adds annotations and enables disallow_untyped_defs per completed package.
+# Keep current errors visible; this is configuration, not a claim that mypy passes yet.
+[tool.mypy]
+python_version = "3.11"
+files = ["SculptureController.py", "flaskServer.py", "sendOscTest.py", "Inputs", "Patterns", "ProgramModules"]
+exclude = '(^|/)(py2|\.deps-py2|\.venv[^/]*|artifacts|tests|tools)(/|$)'
+warn_unused_configs = true
+show_error_codes = true
+pretty = true

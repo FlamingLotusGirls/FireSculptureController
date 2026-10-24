@@ -1,0 +1,7 @@
+# The preserved application and local environments are never Python 3 build inputs.
+prune py2
+prune .deps-py2
+prune .venv*
+prune artifacts
+global-exclude *.pyc
+global-exclude __pycache__

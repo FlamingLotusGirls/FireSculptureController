@@ -1,0 +1,16 @@
+-r requirements.txt
+
+pytest==9.1.1
+mypy==2.4.0
+types-pyserial==3.5.0.20260712
+
+# Test and type-checker dependencies from the same tested environment.
+ast-serialize==0.13.1
+iniconfig==2.3.1
+librt==0.16.0 ; platform_python_implementation != "PyPy"
+mypy_extensions==1.1.0
+packaging==26.3
+pathspec==1.1.1
+pluggy==1.7.0
+Pygments==2.21.0
+typing_extensions==4.16.0

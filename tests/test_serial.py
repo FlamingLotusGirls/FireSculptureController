@@ -1,8 +1,6 @@
 """Transport tests use loop:// and controlled failures; never physical ports."""
 import json
-import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 import threading
@@ -244,15 +242,12 @@ def test_serial_rejects_text_and_does_not_reopen_after_stop():
     assert not adaptor.transmitData(b"!0111.")
 
 
-def test_protocol_bytes_match_unchanged_python2_for_all_mapped_outputs():
-    py2 = os.environ.get("PYTHON2") or shutil.which("python2")
-    if not py2 and Path("C:/Python27/python.exe").exists():
-        py2 = "C:/Python27/python.exe"
-    if not py2:
-        pytest.skip("Set PYTHON2 to run the original interpreter comparison")
+def test_protocol_bytes_match_unchanged_python2_for_all_mapped_outputs(python2, python2_environment):
     script = str(ROOT / "tools/record_protocol_bytes.py")
-    old = subprocess.check_output([py2, script, str(ROOT / "py2")], text=True)
-    new = subprocess.check_output([sys.executable, script, str(ROOT)], text=True)
+    old = subprocess.check_output(
+        [python2, script, str(ROOT / "py2")], env=python2_environment, text=True, timeout=30,
+    )
+    new = subprocess.check_output([sys.executable, script, str(ROOT)], text=True, timeout=30)
     old_data, new_data = json.loads(old), json.loads(new)
     assert len(old_data) == 92
     assert new_data == old_data

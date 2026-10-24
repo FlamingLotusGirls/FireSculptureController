@@ -1,16 +1,20 @@
-# Major object types
+# Developer notes
+
+See [README.md](README.md) for installation and launch, and [TESTING.md](TESTING.md)
+for the byte-comparison procedure, intentional Python 2 differences, test coverage,
+and pending Pi checks. Application code keeps its tab indentation; prefer readable
+changes and leave `py2/` untouched.
 
 ## Adaptors
 
 Adaptors represent the physical data path to the sculpture and handle things
-such as connecting and disconnecting of serial ports and sending and recieving
+such as connecting and disconnecting of serial ports and sending and receiving
 data from the ports. Currently, the only type is SerialAdaptor, which deals
 with any connection that works like a serial port. This includes our usual
 usb-RS485 serial port setup as well as any type of virtual serial port.
 
-SerialAdaptor does not currently have a method for recieving data, as none of
-our scultures currently send data back. But we may in the future need to create
-a SerialAdaptor.recieveData method if we do want to recieve data.
+SerialAdaptor does not currently have a receive method, as none of the current
+sculpture protocols send data back.
 
 If you are adding a sculpture feature where data is not transmitted over a
 serial port, you will need to create a new Adaptor class.  Adaptors are
@@ -34,7 +38,7 @@ Methods needed:
 These convert sculpture data such as a list of poofer states into a stream of
 ascii or binary data ready to be sent to the sculpture. They serve as a
 translator between the in-program data formats and the specific type of data
-that the microconrtollers on the sculpture understand. Protocols also translate
+that the microcontrollers on the sculpture understand. Protocols also translate
 the mapping used in the program to the mapping used in the sculpture according
 to the 'mapping' object in the sculpture's json config file. For example,
 poofers in the program are treated as a 2 dimensional row and column
@@ -48,15 +52,15 @@ Protocols are instantiated by DataChannelManager at sculpture loadup, and are
 matched to an adaptor at instantiation per data in the sculpture's config.json
 file. Multiple protocols can use one adaptor(for example, on Tympani the LEDs
 and sound hammers are on the same physical data bus, but use different
-protocols). A protocol instance matched with an adaptor instance is
+protocols). DataChannelManager associates each module's protocol with its bus writer.
 
 Methods needed:
 
 * `formatData(self, addr, data)`: Takes an address(already translated to the
    sculpture mapping) and data and does the translation into the sculpture's
-   data format. The type of data in addr and data may be different across
+   data format as `bytes`. The type of data in addr and data may be different across
    different protocol types as this data varies with the type of thing being
-   controlled and the addressing arangement of the sculpture's hardware.
+   controlled and the addressing arrangement of the sculpture's hardware.
 
 
 ## Inputs
@@ -237,7 +241,8 @@ waits for a running callback to finish; the serial delivery wait is bounded as d
 above. The service template has a 15-second stop timeout; a forced process kill cannot
 establish that hardware received OFF.
 
-Run `python -W error -m pytest tests -q` for the current suite. Tests exercise all three
+Run `python -m pytest -q` for the current suite; warnings are errors in `pyproject.toml`.
+Tests exercise all three
 sculptures with real timers, loopback serial, local OSC and HTTP, SSE, reload, partial
 startup failures, and worker cleanup. Windows subprocess checks use Python's interrupt
 mechanism to exercise registered SIGINT/SIGTERM handlers; Linux signal delivery, systemd,

@@ -19,10 +19,18 @@ physical serial ports at a time. No branch switch is needed.
 To record the original bytes without hardware or real timer threads:
 
 ```powershell
-$env:PYTHONPATH = (Resolve-Path .deps-py2).Path
-& $py2 tools/record_baseline.py --root py2 --output deploy/py2/baseline.json
+New-Item -ItemType Directory -Force artifacts | Out-Null
+$savedPythonPath = $env:PYTHONPATH
+try {
+    $env:PYTHONPATH = (Resolve-Path .deps-py2).Path
+    & $py2 tools/record_baseline.py --root py2 --output artifacts/old.json
+} finally {
+    $env:PYTHONPATH = $savedPythonPath
+}
 ```
 
 The runner uses the original controller, modules, inputs, patterns, protocols, and Flask
 routes. It substitutes manual timers and a recording transport outside the snapshot.
 The trace compares logical output events; actual timing is checked separately on the Pi.
+Keep `baseline.json` as the saved reference. See [the comparison procedure](../../TESTING.md)
+for capturing and comparing both versions.

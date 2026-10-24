@@ -46,7 +46,7 @@ The existing relay and Tympani LED protocols still receive the Python 3 bytes co
 
 ## Work plan (reviewable steps; local commits only)
 
-**0. Preserve and run the original Python 2 application before editing it.**
+**0. Preserve and run the original Python 2 application before editing it — completed 2026-10-24.**
 - Copy the current application tree byte-for-byte into `py2/`, retaining its directory
   layout: root Python scripts, `Inputs/` (including audio), `Patterns/`, `ProgramModules/`,
   all three `sculptureDefinitions/`, `config.json`, `jsGui/` with vendored assets,
@@ -302,7 +302,33 @@ Original checklist:
   Keep existing timer refresh/changeInterval semantics rather than replacing the timer
   framework. Serialize controller mutations from concurrent HTTP requests and callbacks.
 
-**7. Tests, requirements, docs.**
+**7. Tests, requirements, docs — completed 2026-10-24.**
+
+Pinned the tested runtime and development dependencies, including their dependencies.
+Added Python 3.11 project metadata, explicit pytest/mypy targets, and legacy/environment
+packaging exclusions. Deployment remains a source checkout; no wheel installation or
+virtual environment is required. Pytest treats warnings as errors and reports optional
+Python 2 skips explicitly without mixing the two interpreters' package paths.
+
+The normal suite now includes the saved and fresh Python 2 application comparisons,
+snapshot/configuration/GUI preservation, HeartBeat controls and black output without
+third-party packages, Chase spacing/reverse, and HTTP pattern creation. Rewrote the
+README and added `TESTING.md` with comparison commands, intentional differences, and
+remaining Pi checks. Capture instructions write to ignored `artifacts/`, preserving
+the committed reference baseline.
+
+Verification: all 46 tests pass, with no skips and warnings treated as errors, on
+Python 3.11.15 and 3.13.17. The 59 application scenarios match the saved reference and
+a fresh Python 2.7.18 run; the 92 protocol cases match too. All 75 snapshot hashes and
+47 active configuration/GUI files match. Active-source compilation/import checks pass
+on both Python 3 versions. The pinned requirements match the installed environment and
+`pip check` passes. The 3.11 run shares the installed runtime/pytest packages through
+`PYTHONPATH`; Pi installation and hardware testing remain pending.
+
+Mypy configuration parses and targets 24 active source files; five existing errors remain
+for step 8. No annotation pass or application behavior change is included in this step.
+
+Original checklist:
 - Pin `requirements.txt` to `flask`, `pyserial`, and `python-osc`. S1 was adopted in step 6;
   there is no gevent, scipy, numpy or pyaudio dependency.
 - Add `pyproject.toml` (`requires-python`, pytest and mypy config) and `requirements-dev.txt`
@@ -394,7 +420,7 @@ requirements above.
 ## Things to flag (not fixing now)
 
 - **Serpent LED output stays a no-op throughout today's work.** `SerpentMotherLedProtocol.formatData`
-  returns `""` today. In `serpent.json` the `leds` module is declared
+  returns `b""` in the port. In `serpent.json` the `leds` module is declared
   `"moduleType": "Poofer"` (not `LED`) and sits on `flameBus`, the same bus as the flame
   relays, while `ledBus` is unused. HeartBeat's `getState` returns an RGB tuple, which the
   boolean-style `PooferModule` passes through. These questions remain deferred with step 9;
