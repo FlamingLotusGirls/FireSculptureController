@@ -1,0 +1,19 @@
+[Unit]
+Description=Fire Sculpture Controller
+After=network.target
+
+[Service]
+Type=simple
+User=firesculpture
+Group=firesculpture
+SupplementaryGroups=dialout
+WorkingDirectory=/opt/FireSculptureController
+ExecStart=/usr/bin/python3 -u /opt/FireSculptureController/flaskServer.py --host 0.0.0.0 --port 8080 --sculpture aota --log-level INFO
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=15
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

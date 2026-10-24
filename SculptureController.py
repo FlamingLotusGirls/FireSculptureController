@@ -1,117 +1,172 @@
-import json
 import inspect
+import json
 import logging
-import os
-import time
 from copy import deepcopy
-from io import open
+from pathlib import Path
 
 from ProgramModules.DataChannelManager import DataChannelManager
 from ProgramModules.InputManager import InputManager
-from ProgramModules import utils, SculptureModules
+from ProgramModules import SculptureModules
+from ProgramModules.Runtime import callbackContext, synchronized
+from ProgramModules.Timers import Timer
 import ProgramModules.sharedObjects as app
 import Inputs
-
 
 logger = logging.getLogger(__name__)
 
 
-class SculptureController():
+class ControllerStopped(RuntimeError):
+	pass
+
+
+class SculptureController:
+	@synchronized
 	def __init__(self):
-		configFileName = 'config.json' #not really used yet, someday!
-		definitionFileDirectory = 'sculptureDefinitions'
-		self.sculptureDefinitions = {} #all the info from sculpture definition Json files
-		self.sculptureModules = {} #modules do most of the work of running patterns and stuff
-		self.globalInputs = {} #inputs that are available to be used by any pattern
+		root = Path(__file__).resolve().parent
+		self.sculptureDefinitions = {}
+		self.sculptureModules = {}
+		self.globalInputs = {}
 		self.availableGlobalInputs = []
 		self.sculptureConfig = False
-
+		self.inputManager = None
+		self.dataChannelManager = None
+		self.stopped = False
+		self.shutdownComplete = True
 		for inputType in [['multi', 'osc'], ['multi', 'basic']]:
-			if not 'unavailable' in Inputs.inputTypes[' '.join([inputType[1], inputType[0]])].keys():
+			if 'unavailable' not in Inputs.inputTypes[' '.join([inputType[1], inputType[0]])]:
 				self.availableGlobalInputs.append(inputType)
-		for definitionFileName in os.listdir(definitionFileDirectory):
-			try:
-				with open("%s/%s" %(definitionFileDirectory, definitionFileName), encoding="utf-8") as definitionFile:
-					definition = json.load(definitionFile)
-				self.sculptureDefinitions[definition['sculptureId']] = definition
-			except:
-				pass
-		with open(configFileName, encoding="utf-8") as configFile:
-			self.globalConfig = json.load(configFile)
+		for path in sorted((root / 'sculptureDefinitions').glob('*.json')):
+			with path.open(encoding='utf-8') as source:
+				definition = json.load(source)
+			self.sculptureDefinitions[definition['sculptureId']] = definition
+		with (root / 'config.json').open(encoding='utf-8') as source:
+			self.globalConfig = json.load(source)
 		self.availableInputs = {}
-		self.methodList = [m[0] for m in inspect.getmembers(self, predicate=inspect.ismethod)]
+		self.methodList = [name for name, method in inspect.getmembers(self, predicate=inspect.ismethod)
+			if not name.startswith('_')]
 		self.doReset()
 
-	def doReset(self):
-		app.safeMode.set(True)
+	def _reset(self):
+		if getattr(callbackContext, 'active', False):
+			raise RuntimeError('Reset or reload the controller outside a timer/OSC callback')
+		# engineLock has stopped new commands/callbacks. Keep it held through cleanup;
+		# cancelled workers can leave their lock wait and be joined safely.
+		errors = []
+		def cleanup(function):
+			try:
+				return function()
+			except Exception as error:
+				logger.exception('Cleanup failed in %s', function.__name__)
+				errors.append(error)
+
+		cleanup(lambda: app.safeMode.set(True))
+		for module in list(self.sculptureModules.values()):
+			cleanup(module.stop)
+		if self.inputManager is not None:
+			cleanup(self.inputManager.stop)
+		cleanup(Timer.stopAll)
+		delivered = True
+		if self.dataChannelManager is not None:
+			delivered = cleanup(self.dataChannelManager.stop) is not False
+		if errors:
+			# Do not replace managers when cleanup failed; another stop may retry it.
+			raise RuntimeError('Controller cleanup failed') from errors[0]
+		app.safeMode.clearBindings()
 		app.messenger.doReset()
-		if self.sculptureConfig:
-			for moduleId in self.sculptureModules:
-				self.sculptureModules[moduleId].stop()
-			for inputInstanceId in self.globalInputs:
-				self.globalInputs[inputInstanceId].stop()
-			app.inputManager.unRegisterInputs('main')
-			app.dataChannelManager.stop()
-			time.sleep(0.5)
 		self.sculptureConfig = False
 		self.sculptureModules = {}
 		self.globalInputs = {}
-		app.messenger.doReset()
+		self.inputManager = None
+		self.dataChannelManager = None
+		return delivered
 
+	@synchronized
+	def doReset(self):
+		return self._reset()
+
+	@synchronized
+	def stop(self):
+		if self.stopped:
+			return self.shutdownComplete
+		self.stopped = True
+		self.shutdownComplete = False
+		try:
+			self.shutdownComplete = self._reset()
+		except Exception:
+			self.stopped = False  # Allow another cleanup attempt.
+			raise
+		return self.shutdownComplete
+
+	@synchronized
 	def loadSculpture(self, sculptureId):
-		self.doReset()
-		self.sculptureConfig = deepcopy(self.sculptureDefinitions[sculptureId])
-		app.dataChannelManager = DataChannelManager(self.sculptureConfig)
-		app.inputManager = InputManager()
-		self.currentSculptureId = sculptureId
-		for moduleId in self.sculptureConfig['modules']:
-			moduleConfig = self.sculptureConfig['modules'][moduleId]
-			moduleConfig['moduleId'] = moduleId
-			sculptureModuleClass = getattr(SculptureModules, moduleConfig['moduleType'] + 'Module')
-			self.sculptureModules[moduleId] = sculptureModuleClass(moduleConfig)
+		if self.stopped:
+			raise ControllerStopped('Controller has stopped')
+		config = deepcopy(self.sculptureDefinitions[sculptureId])
+		self._reset()
+		self.sculptureConfig = config
+		try:
+			self.dataChannelManager = DataChannelManager(config)
+			app.dataChannelManager = self.dataChannelManager
+			self.inputManager = InputManager()
+			app.inputManager = self.inputManager
+			self.currentSculptureId = sculptureId
+			for moduleId, moduleConfig in config['modules'].items():
+				moduleConfig = dict(moduleConfig, moduleId=moduleId)
+				moduleClass = getattr(SculptureModules, moduleConfig['moduleType'] + 'Module')
+				self.sculptureModules[moduleId] = moduleClass(moduleConfig)
+		except Exception:
+			self._reset()
+			raise
 
+	@synchronized
 	def setInputValue(self, inputInstanceId, *args):
-		inputObj = app.inputManager.getInputObj(inputInstanceId)
-		inputObj.setInputValue(*args)
+		self.inputManager.getInputObj(inputInstanceId).setInputValue(*args)
 
+	@synchronized
 	def doCommand(self, command):
+		if self.stopped:
+			raise ControllerStopped('Controller has stopped')
+		if not isinstance(command, list) or not command or not isinstance(command[0], str):
+			raise ValueError('Expected a non-empty command list')
+		command = list(command)
 		logger.debug('doCommand(%s)', command)
 		functionName = command[0]
 		if functionName in self.methodList:
-			command.pop(0)
-			function = getattr(self, functionName)
-			return function(*command)
-		else:
-			moduleId = command.pop(1)
-			return self.sculptureModules[moduleId].doCommand(command)
+			return getattr(self, functionName)(*command[1:])
+		moduleId = command.pop(1)
+		return self.sculptureModules[moduleId].doCommand(command)
 
+	@synchronized
 	def getCurrentStateData(self):
 		if self.sculptureConfig:
-			data = self.sculptureConfig.copy()
+			data = deepcopy(self.sculptureConfig)
 			data['safeMode'] = app.safeMode.isSet()
-			for moduleId in self.sculptureConfig['modules']:
-				data['modules'][moduleId] = dict(self.sculptureConfig['modules'][moduleId], **self.sculptureModules[moduleId].getCurrentStateData())
-			data = dict(data, **app.inputManager.getCurrentStateData())
+			for moduleId, module in self.sculptureModules.items():
+				data['modules'][moduleId].update(module.getCurrentStateData())
+			data.update(self.inputManager.getCurrentStateData())
 			data['messenger'] = app.messenger.getCurrentStateData()
-			data['adaptors'] = app.dataChannelManager.getCurrentStateData()
+			data['adaptors'] = self.dataChannelManager.getCurrentStateData()
 		else:
-			data = {'sculptures' : {}}
-			for sculptureId in self.sculptureDefinitions:
-				data['sculptures'][sculptureId] = self.sculptureDefinitions[sculptureId]
-		data['globalInputs'] = list(self.globalInputs.keys())
+			data = {'sculptures': self.sculptureDefinitions}
+		data['globalInputs'] = list(self.globalInputs)
 		data['availableGlobalInputs'] = self.availableGlobalInputs
-		return data
+		# JSON encoding happens after releasing the lock; return an independent snapshot.
+		return deepcopy(data)
 
+	@synchronized
 	def addGlobalInput(self, inputParams):
-		newInputId = app.inputManager.createNewInput(inputParams)
-		self.globalInputs[newInputId] = app.inputManager.registerAndGetInput('main', newInputId)
+		newInputId = self.inputManager.createNewInput(inputParams)
+		self.globalInputs[newInputId] = self.inputManager.registerAndGetInput('main', newInputId)
 
+	@synchronized
 	def removeGlobalInput(self, inputInstanceId):
-		app.inputManager.unRegisterInputs('main', inputInstanceId)
+		self.inputManager.unRegisterInputs('main', inputInstanceId)
 		del self.globalInputs[inputInstanceId]
 
+	@synchronized
 	def setSafeMode(self, value):
 		app.safeMode.set(value)
 
+	@synchronized
 	def updateSerialConnection(self, *args):
-		return app.dataChannelManager.updateSerialConnection(*args)
+		return self.dataChannelManager.updateSerialConnection(*args)

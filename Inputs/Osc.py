@@ -1,6 +1,8 @@
 from .InputBase import InputBase
-from threading import Thread, current_thread
+from threading import Event, Thread, current_thread
+from time import time
 from ProgramModules import utils
+from ProgramModules.Runtime import runCallback
 
 inputTypes = {
 	'osc multi' : {
@@ -17,8 +19,32 @@ inputTypes = {
 try:
 	from pythonosc.dispatcher import Dispatcher
 	from pythonosc.osc_server import BlockingOSCUDPServer
+	from pythonosc.osc_packet import OscPacket, ParseError
 except ImportError:
 	inputTypes['osc multi']['unavailable'] = True
+
+
+if 'unavailable' not in inputTypes['osc multi']:
+	class CancellableDispatcher(Dispatcher):
+		"""Keep bundle timetags, but cancel their wait when the input stops."""
+		def __init__(self):
+			super().__init__()
+			self.stopEvent = Event()
+
+		def call_handlers_for_packet(self, data, client_address):
+			try:
+				packet = OscPacket(data)
+			except ParseError:
+				return []
+			results = []
+			for message in packet.messages:
+				if self.stopEvent.wait(max(0, message.time - time())):
+					break
+				for handler in self.handlers_for_address(message.message.address):
+					result = runCallback(self.stopEvent, handler.invoke, client_address, message.message)
+					if result is not None:
+						results.append(result)
+			return results
 
 
 class OscMultiInput(InputBase):
@@ -26,6 +52,8 @@ class OscMultiInput(InputBase):
 		def __init__(self, host, dispatcher):
 			Thread.__init__(self, name='osc-%s:%s' % host)
 			self.server = BlockingOSCUDPServer(host, dispatcher)
+			self.stopEvent = dispatcher.stopEvent
+			self.shutdownThread = None
 
 		def run(self):
 			try:
@@ -34,11 +62,17 @@ class OscMultiInput(InputBase):
 				self.server.server_close()
 
 		def stop(self):
+			self.stopEvent.set()
 			# shutdown() must run outside the serving thread, or it deadlocks.
 			if current_thread() is self:
-				raise RuntimeError('Stop the OSC input from outside its callback thread')
+				if self.shutdownThread is None:
+					self.shutdownThread = Thread(target=self.server.shutdown, name='osc-stop')
+					self.shutdownThread.start()
+				return
 			self.server.shutdown()
 			self.join()
+			if self.shutdownThread is not None:
+				self.shutdownThread.join()
 
 	def __init__(self, params, *args):
 		params = utils.extendSettings(inputTypes['osc multi'], params)
@@ -61,10 +95,15 @@ class OscMultiInput(InputBase):
 				params['outParams'].append({'type' : outputType, 'description' : outputType[0].upper() + outputType[1:] + ' ' + address, 'sendMessageOnChange' : True})
 			
 		InputBase.__init__(self, params, *args)
-		dispatcher = Dispatcher()
+		dispatcher = CancellableDispatcher()
 		self.registerCallbacks(dispatcher)
 		self.server = OscMultiInput.OscServerThread((self.configParams['host'], self.configParams['port']), dispatcher)
-		self.server.start()
+		try:
+			self.server.start()
+		except Exception:
+			self.server.server.server_close()
+			InputBase.stop(self)
+			raise
 		self.persistant = True
 
 

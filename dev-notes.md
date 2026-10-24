@@ -141,7 +141,8 @@ each writer gets up to two seconds to finish delivery. It is then woken and join
 writer closes its own connection as it exits. An undelivered state is logged and shutdown
 returns `False`; an unresponsive writer is an error rather than permission to close a port
 underneath it.
-Broader timer, process-signal, and controller-reload cleanup remains in step 6.
+Controller shutdown and reload also stop the producers, timers, and OSC listeners before
+replacing shared managers; see the lifecycle section below.
 
 Status fields `deliveryPending` and `writerError` distinguish accepted work from completed
 writes; `lastError` reports adaptor I/O failure. `connected` means the serial connection is
@@ -159,8 +160,9 @@ python -m pytest tests/test_serial.py -q
 Tests use `loop://` and controlled fake adaptors. The original/protocol comparison uses
 `PYTHON2` if set, otherwise `python2` on PATH or `C:/Python27/python.exe` on Windows. It is
 skipped if no Python 2 interpreter is available; the remaining transport checks still run.
-The 59-scenario full-application comparison remains separate and awaits completion of the
-Python 3 dependency/server changes.
+The separate 59-scenario full-application comparison now passes on Python 3.11 and 3.13
+against a fresh run of the preserved Python 2 application. It uses manual timers and a
+recording transport; it checks packet contents, not physical timing or relay operation.
 
 ## OSC input
 
@@ -186,11 +188,57 @@ One blocking server handles callbacks sequentially on its own thread. `stop()` c
 socket on exit. An idle listener checks shutdown every 50 ms and needs no incoming packet
 to stop. Repeated stops are supported, and the port can be reused after stopping.
 
-Shutdown waits for an active callback to finish. Future bundle timetags retain their
-existing scheduling behavior and can also delay shutdown; this is not a hard shutdown
-deadline. Calling `stop()` from an OSC callback raises an explicit error instead of
-deadlocking. Broader callback coordination and timer cleanup remain in step 6.
+Future bundle timetags retain their scheduling behavior while running, but stopping
+cancels their wait and discards the pending messages. Shutdown still waits for an active
+callback to finish. If an OSC callback stops its own input, shutdown is requested on a
+helper thread and the listener exits after that callback returns; it never joins itself.
+An external stop waits for the listener and pulse timers to finish before returning.
 
 Run `python -m pytest tests/test_osc.py -q` for local UDP routing, pulse auto-OFF, GUI
 configuration, bundle ordering, and listener shutdown/rebind checks. These checks use
 ephemeral ports and do not contact sculpture hardware.
+
+## Controller lifecycle
+
+The application has one controller per process. HTTP commands, state snapshots, timer
+callbacks, and OSC callbacks share the reentrant lock in `ProgramModules/Runtime.py`.
+State returned to the web server is copied before releasing that lock, so JSON encoding
+cannot observe a partly updated pattern or module. The serial writer retains its separate
+safe-mode lock; lock order is controller, safe mode, then adaptor. It never calls back
+into the controller.
+
+Reload holds the controller lock, requests safe mode/OFF, and stops old modules, inputs,
+timers, and serial writers before installing new managers. Timer and OSC workers waiting
+for the controller lock can cancel that wait, preventing shutdown from joining a worker
+that is waiting for the lock shutdown holds. Old safe-mode bindings and messenger
+subscriptions are removed. Per-output manual OFF timers are now owned by the module and
+stopped on reload; partial construction also releases any workers or ports it created.
+Removing an active pattern now immediately recomputes outputs, so its last ON state does
+not remain cached until another update.
+
+The existing timer countdown, refresh, and changeInterval behavior is retained. A new
+timer skips its first interval; refresh consumes that skipped step and waits one full
+interval. Changing the interval affects the next wait. Single timers remain refreshable
+unless stopWhenDone is set. Stopping joins the timer, except when it stops itself. Reset
+or reload from inside a timer/OSC callback is rejected; use the normal controller command
+path after the callback returns so managers cannot be replaced beneath that callback.
+
+The web server uses Werkzeug's threaded server and standard-library queues for SSE.
+Both GUI loading and `--sculpture` loading use the same output-stream binding helper.
+SSE connections send an initial comment and periodic keepalive comments, remove their
+queues when closed, and are woken during shutdown. Debug mode and the reloader are off.
+
+SIGINT/Ctrl+C and SIGTERM request shutdown through an event. New web commands are then
+rejected, producers stop, governed OFF is attempted, and connections close. Unexpected
+HTTP command, worker-callback, or server exceptions request the same cleanup and a nonzero
+exit. Failed serial delivery also yields a nonzero exit so systemd can restart in safe
+mode. There is no overall hard deadline for arbitrary application callbacks: shutdown
+waits for a running callback to finish; the serial delivery wait is bounded as described
+above. The service template has a 15-second stop timeout; a forced process kill cannot
+establish that hardware received OFF.
+
+Run `python -W error -m pytest tests -q` for the current suite. Tests exercise all three
+sculptures with real timers, loopback serial, local OSC and HTTP, SSE, reload, partial
+startup failures, and worker cleanup. Windows subprocess checks use Python's interrupt
+mechanism to exercise registered SIGINT/SIGTERM handlers; Linux signal delivery, systemd,
+Pi timing, and physical hardware still require on-device verification.

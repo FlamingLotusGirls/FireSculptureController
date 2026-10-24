@@ -240,25 +240,40 @@ class DataChannelManager:
 		self.dataChannels = {}
 		self.moduleAdaptors = {}
 		self.stopped = False
-		for adaptorId, settings in sculptureConfigData['adaptors'].items():
-			config = dict(settings, adaptorId=adaptorId)
-			className = config['type'][0].upper() + config['type'][1:] + 'Adaptor'
-			adaptor = getattr(Adaptors, className)(config)
-			self.adaptors[adaptorId] = AdaptorThread(adaptor)
-		for moduleId, config in sculptureConfigData['modules'].items():
-			kind = config['protocol']['type']
-			protocolClass = getattr(Protocols, kind[0].upper() + kind[1:] + 'Protocol')
-			# The manager uses the protocol as an encoder and owns asynchronous delivery.
-			protocol = protocolClass(None, config['protocol'])
-			self.dataChannels[moduleId] = protocol
-			writer = self.adaptors[config['adaptor']]
-			writer.registerChannel(moduleId, protocol)
-			self.moduleAdaptors[moduleId] = writer
-		self.safeModeBinding = app.safeMode.addBinding(self.allOff)
-		if app.safeMode.isSet():
-			self.allOff()
-		for writer in self.adaptors.values():
-			writer.start()
+		self.safeModeBinding = None
+		self.shutdownComplete = False
+		try:
+			for adaptorId, settings in sculptureConfigData['adaptors'].items():
+				config = dict(settings, adaptorId=adaptorId)
+				className = config['type'][0].upper() + config['type'][1:] + 'Adaptor'
+				adaptor = getattr(Adaptors, className)(config)
+				self.adaptors[adaptorId] = AdaptorThread(adaptor)
+			for moduleId, config in sculptureConfigData['modules'].items():
+				kind = config['protocol']['type']
+				protocolClass = getattr(Protocols, kind[0].upper() + kind[1:] + 'Protocol')
+				# The manager uses the protocol as an encoder and owns asynchronous delivery.
+				protocol = protocolClass(None, config['protocol'])
+				self.dataChannels[moduleId] = protocol
+				writer = self.adaptors[config['adaptor']]
+				writer.registerChannel(moduleId, protocol)
+				self.moduleAdaptors[moduleId] = writer
+			self.safeModeBinding = app.safeMode.addBinding(self.allOff)
+			if app.safeMode.isSet():
+				self.allOff()
+			for writer in self.adaptors.values():
+				writer.start()
+		except Exception:
+			if self.safeModeBinding is not None:
+				app.safeMode.removeBinding(self.safeModeBinding)
+			for writer in self.adaptors.values():
+				try:
+					if writer.ident is None:
+						writer.adaptor.stop()
+					else:
+						writer.stop()
+				except Exception:
+					logger.exception('Failed to close partially initialized serial writer')
+			raise
 
 	def send(self, moduleId, commands) -> bool:
 		return self.moduleAdaptors[moduleId].send(moduleId, commands)
@@ -273,7 +288,7 @@ class DataChannelManager:
 
 	def stop(self) -> bool:
 		if self.stopped:
-			return True
+			return self.shutdownComplete
 		with app.safeMode.lock:
 			self.stopped = True
 			self.allOff()
@@ -281,8 +296,19 @@ class DataChannelManager:
 				writer.accepting = False
 			app.safeMode.removeBinding(self.safeModeBinding)
 		# Do not hold the safe-mode lock while waiting for the writers to drain.
-		completed = [writer.stop() for writer in self.adaptors.values()]
-		return all(completed)
+		completed = []
+		errors = []
+		for writer in self.adaptors.values():
+			try:
+				completed.append(writer.stop())
+			except Exception as error:
+				logger.exception('Failed to stop %s', writer.name)
+				errors.append(error)
+		if errors:
+			self.stopped = False
+			raise RuntimeError('Serial shutdown failed') from errors[0]
+		self.shutdownComplete = all(completed)
+		return self.shutdownComplete
 
 	def updateSerialConnection(self, adaptorId, data) -> bool:
 		return self.adaptors[adaptorId].updateSerialConnection(data)

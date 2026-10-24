@@ -238,10 +238,8 @@ and serial checks pass with warnings treated as errors on Python 3.11.15 and 3.1
 controller import and OSC registration also pass on both. All 75 Python 2 snapshot hashes
 match. Network-device/Pi checks and the full-application comparison remain pending.
 
-Listener stop does not require a new packet. It still waits for active callbacks and
-future bundle timetags, preserving scheduling behavior; broader lifecycle coordination
-remains in step 6. Stopping from the serving callback thread is explicitly rejected to
-avoid a self-deadlock.
+Listener stop does not require a new packet. Step 6 extends this with cancellation of
+future bundle waits and safe self-stop from callbacks, while preserving running timetags.
 
 Original checklist:
 Rewrite the server thread in [Inputs/Osc.py](Inputs/Osc.py) onto
@@ -259,7 +257,32 @@ Two fixes ride along:
 
 Port [sendOscTest.py](sendOscTest.py) to `SimpleUDPClient`.
 
-**6. Web server and headless launch** (see simplification S1 for the gevent decision).
+**6. Web server, headless launch, and lifecycle — completed 2026-10-24.**
+
+Adopted S1 and S5: replaced gevent/greenlet with threaded Flask/Werkzeug and standard-library
+SSE queues, with debug/reloader off. Added `--host`, `--log-level`, and `--sculpture`; GUI
+and boot-time loading share SSE setup. Configuration and static assets resolve relative
+to the source. Added `deploy/firesculpture.service` and a deployment runbook, without
+installing anything on the Pi or requiring a virtual environment.
+
+Controller commands and timer/OSC callbacks now share a lock with cancellable worker
+waits. Reload/shutdown remove old bindings, stop and join owned timers (including manual
+OFF timers), close OSC/serial, and clean up partial initialization. State snapshots are
+copied for concurrent JSON encoding. Removing a pattern immediately recomputes output.
+OSC timetags remain honored while running; shutdown cancels pending bundle waits.
+SIGINT/SIGTERM and unexpected errors reach shared cleanup; delivery failure exits nonzero.
+
+Verification: 40 tests pass with warnings treated as errors on Python 3.11.15 and 3.13.17.
+They include all-three-sculpture reloads with live timers, local HTTP/SSE and OSC, partial
+startup failure, signal handlers, worker failure, OFF delivery and joined cleanup. All
+59 full-application byte scenarios match a fresh Python 2 run on both Python 3 versions
+(manual clocks and recording transport); the 92 protocol cases also pass. All 75 snapshot
+hashes match; sculpture configuration and GUI assets remain unchanged.
+
+Windows subprocess tests exercise the registered signal handlers via Python interrupts.
+Actual Linux/systemd operation, Pi timing, and physical serial/hardware checks are pending.
+
+Original checklist:
 - `gevent.wsgi` → `gevent.pywsgi` at minimum.
 - Make `debug` False, add `--host` (default `0.0.0.0`) and `--log-level`.
 - Add `--sculpture <id>` to load a sculpture at boot. Today someone must click one in the
@@ -280,8 +303,8 @@ Port [sendOscTest.py](sendOscTest.py) to `SimpleUDPClient`.
   framework. Serialize controller mutations from concurrent HTTP requests and callbacks.
 
 **7. Tests, requirements, docs.**
-- Pin `requirements.txt` to `flask`, `pyserial`, `python-osc`, plus `gevent` only if S1 isn't
-  taken. No scipy, numpy or pyaudio.
+- Pin `requirements.txt` to `flask`, `pyserial`, and `python-osc`. S1 was adopted in step 6;
+  there is no gevent, scipy, numpy or pyaudio dependency.
 - Add `pyproject.toml` (`requires-python`, pytest and mypy config) and `requirements-dev.txt`
   (pytest, mypy, `types-pyserial`).
 - Rewrite [README.md](README.md) (Python 3, install, running headless, systemd, all three
@@ -376,8 +399,6 @@ requirements above.
   relays, while `ledBus` is unused. HeartBeat's `getState` returns an RGB tuple, which the
   boolean-style `PooferModule` passes through. These questions remain deferred with step 9;
   do not change the LED bus, mapping, or module type today.
-- `SculptureController.getCurrentStateData` shallow-copies the config and then overwrites
-  entries in the shared `modules` dict. It's harmless today and left alone.
 - Input instance IDs now follow dict insertion order (Python 3.7+), so they become
   deterministic. The GUI only uses them as opaque IDs.
 

@@ -1,4 +1,3 @@
 flask
 pyserial
-gevent
 python-osc

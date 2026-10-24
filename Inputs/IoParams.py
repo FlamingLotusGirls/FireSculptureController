@@ -7,6 +7,7 @@ import ProgramModules.sharedObjects as app
 
 class IoParamBase():
 	def __init__(self, params, parentId = 0, indexId = 0):
+		self.stopped = False
 		self.params = utils.extendSettings(self.defaultParams, params)
 		self.parentId = parentId
 		self.indexId = indexId
@@ -17,7 +18,7 @@ class IoParamBase():
 		return self.value
 	
 	def stop(self):
-		pass
+		self.stopped = True
 		
 	def getCurrentStateData(self):
 		data = self.params.copy()
@@ -40,6 +41,8 @@ class ValueParam(IoParamBase):
 		IoParamBase.__init__(self, params, *args)
 		
 	def setValue(self, newValue):
+		if self.stopped:
+			return
 		newValue = self.constrain(newValue)
 		if (not self.value == newValue):
 			self.value = newValue
@@ -70,11 +73,13 @@ class PulseParam(IoParamBase):
 		self.timer = False
 
 	def setValue(self, newValue):
+		if self.stopped:
+			return
 		newValue = self.constrain(newValue)
 		self.value = newValue
 		if self.params['sendMessageOnChange']:
 			app.messenger.putMessage("output%s_%s" %(self.parentId, self.indexId), self.value)
-		if newValue:
+		if newValue and not self.stopped:
 			if self.timer:
 				self.timer.refresh()
 			else:
@@ -84,6 +89,7 @@ class PulseParam(IoParamBase):
 		return bool(value)
 
 	def stop(self):
+		IoParamBase.stop(self)
 		if self.timer:
 			self.timer.stop()
 
@@ -94,6 +100,8 @@ class ToggleParam(IoParamBase):
 		IoParamBase.__init__(self, *args)
 		
 	def setValue(self, newValue):
+		if self.stopped:
+			return
 		newValue = self.constrain(newValue)
 		if (not self.value == newValue):
 			self.value = newValue
@@ -112,6 +120,8 @@ class TextParam(IoParamBase):
 	def getValue(self):
 		return self.value
 	def setValue(self, newValue):
+		if self.stopped:
+			return
 		newValue = self.constrain(newValue)
 		if (not self.value == newValue):
 			self.value = newValue

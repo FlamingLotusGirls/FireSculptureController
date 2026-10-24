@@ -96,6 +96,19 @@ class InputManager():
 	def getInputObj(self, inputInstanceId):
 		return self.inputInstances[inputInstanceId]
 
+	def stop(self):
+		errors = []
+		for inputObj in list(self.inputInstances.values()):
+			try:
+				inputObj.stop()
+			except Exception as error:
+				logger.exception('Failed to stop input %s', inputObj.getId())
+				errors.append(error)
+		if errors:
+			raise RuntimeError('Input cleanup failed') from errors[0]
+		self.inputInstances.clear()
+		self.inputInstanceUses.clear()
+
 class InputCollection(object): #a package of all the inputs used by a module or pattern instance
 	def __init__(self, parentObj, inputCollection, inputParams):
 		self.inputCollection = inputCollection
@@ -155,6 +168,8 @@ class InputCollection(object): #a package of all the inputs used by a module or 
 
 
 	def stop(self):
+		if not self.parentObj:
+			return
 		for inputChannelId in self.inputParams:
 			self.removeExistingMessengerBindings(inputChannelId)
 		app.inputManager.unRegisterInputs(self.parentObj.getId())

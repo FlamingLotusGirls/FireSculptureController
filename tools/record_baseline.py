@@ -22,6 +22,9 @@ class ManualTimer(object):
     def stop(self): pass
     def refresh(self): pass
     def changeInterval(self, interval): self.interval = interval
+    def is_alive(self): return True
+    @classmethod
+    def stopAll(cls): pass
 
 import ProgramModules.Timers as timers
 timers.Timer = ManualTimer
@@ -55,7 +58,9 @@ from SculptureController import SculptureController
 import flaskServer
 controller = flaskServer.sculpture
 client = flaskServer.flaskApp.test_client()
-assert client.get("/").status_code == 200
+response = client.get("/")
+assert response.status_code == 200
+response.close()
 assert client.get("/getData").status_code == 200
 results = {}
 

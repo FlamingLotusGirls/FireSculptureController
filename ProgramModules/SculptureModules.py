@@ -16,12 +16,24 @@ class SculptureModuleBase():
 		self.initialized = False
 		self.moduleConfig = deepcopy(moduleConfig)
 		self.refreshTimer = False
+		self.safeModeBinding = None
+		self.itemTimers = []
 		if 'resendDataInterval' in self.moduleConfig['protocol'].keys() and self.moduleConfig['protocol']['resendDataInterval']:
 			self.refreshTimer = Timer(True, self.moduleConfig['protocol']['resendDataInterval'], self.resendOnStates)
 
 	def stop(self):
+		if self.safeModeBinding is not None:
+			app.safeMode.removeBinding(self.safeModeBinding)
+			self.safeModeBinding = None
 		if self.refreshTimer:
 			self.refreshTimer.stop()
+		for timer in self.itemTimers:
+			timer.stop()
+		self.itemTimers = []
+
+	def scheduleItemOff(self, address):
+		self.itemTimers = [timer for timer in self.itemTimers if timer.is_alive()]
+		self.itemTimers.append(Timer(False, 500, self.setItemState, (address, False), True))
 
 
 	def doCommand(self, command):
@@ -81,6 +93,8 @@ class GridPatternModule(SculptureModuleBase):
 	def removePattern(self, patternInstanceId): #remove a pattern instance from the stack
 		self.patterns[patternInstanceId].stop()
 		del self.patterns[patternInstanceId]
+		del self.patternRowSettings[patternInstanceId]
+		self.doUpdates()
 
 	def reassignPatternInput(self, patternInstanceId, *args): #connect data from an input to a pattern parameter
 		return self.patterns[patternInstanceId].reassignInput(*args)
@@ -92,6 +106,7 @@ class GridPatternModule(SculptureModuleBase):
 		for patternInstanceId in self.patterns:
 			self.patterns[patternInstanceId].stop()
 		self.patterns = {}
+		self.patternRowSettings = {}
 		SculptureModuleBase.stop(self)
 
 
@@ -108,7 +123,7 @@ class LEDModule(GridPatternModule):
 		self.enabledStatus = [
 			[True for j in range(self.gridSize[1])]
 			for i in range(self.gridSize[0])]
-		app.safeMode.addBinding(self.doUpdates);
+		self.safeModeBinding = app.safeMode.addBinding(self.doUpdates)
 
 
 	def doUpdates(self): #Check the pattern state and send data out
@@ -141,7 +156,7 @@ class LEDModule(GridPatternModule):
 		state = app.isSafeModeOff() and state
 		self.individualToggleStates[addr[0]][addr[1]] = state
 		if state:
-			Timer(False, 500, self.setItemState, (addr, False), True)
+			self.scheduleItemOff(addr)
 		self.doUpdates()
 
 
@@ -151,7 +166,7 @@ class PooferModule(GridPatternModule):
 		self.individualToggleStates = [[False for j in range(self.gridSize[1])] for i in range(self.gridSize[0])]
 		self.currentOutputState = [[False for j in range(self.gridSize[1])] for i in range(self.gridSize[0])]
 		self.enabledStatus = [[True for j in range(self.gridSize[1])] for i in range(self.gridSize[0])]
-		app.safeMode.addBinding(self.doUpdates);
+		self.safeModeBinding = app.safeMode.addBinding(self.doUpdates)
 
 
 	def doUpdates(self): #Check the pattern state and send data out
@@ -183,7 +198,7 @@ class PooferModule(GridPatternModule):
 		state = app.isSafeModeOff() and state
 		self.individualToggleStates[addr[0]][addr[1]] = state
 		if state:
-			Timer(False, 500, self.setItemState, (addr, False), True)
+			self.scheduleItemOff(addr)
 		self.doUpdates()
 
 class InputOnlyModule(SculptureModuleBase):

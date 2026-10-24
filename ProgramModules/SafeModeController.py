@@ -1,6 +1,7 @@
 """Safe-mode state and callbacks, serialized with command formatting and serial writes."""
 import logging
 from threading import RLock
+from .Runtime import synchronized
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ class SafeModeController:
 		with self.lock:
 			return self.safeMode
 
+	@synchronized
 	def set(self, value):
 		with self.lock:
 			self.safeMode = bool(value)
@@ -46,3 +48,7 @@ class SafeModeController:
 		with self.lock:
 			if binding in self.bindings:
 				self.bindings.remove(binding)
+
+	def clearBindings(self):
+		with self.lock:
+			self.bindings.clear()

@@ -6,6 +6,7 @@ will be called when a message appears on the channel.
 '''
 
 import logging
+from .Runtime import synchronized
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ class Messenger():
 		self.nextBindingId = 1
 
 
+	@synchronized
 	def putMessage(self, channelId, message):
 		logger.debug('putMessage(%s, %s)', channelId, message)
 		self.checkForChannel(channelId)
@@ -23,9 +25,11 @@ class Messenger():
 			self.channels[channelId]['messages'].append(message)
 		else:
 			self.channels[channelId]['messages'] = [message]
-		for bindingId in self.channels[channelId]['bindings']:
-			function = self.channels[channelId]['bindings'][bindingId]['function']
-			data = self.channels[channelId]['bindings'][bindingId]['data']
+		for bindingId, binding in list(self.channels[channelId]['bindings'].items()):
+			if bindingId not in self.channels[channelId]['bindings']:
+				continue
+			function = binding['function']
+			data = binding['data']
 			logger.debug('calling %s with %s', function, data)
 			if data:
 				function(*data)
@@ -33,6 +37,7 @@ class Messenger():
 				function()
 
 
+	@synchronized
 	def getMessages(self, channelId):
 		self.checkForChannel(channelId)
 		data = self.channels[channelId]['messages']
@@ -40,6 +45,7 @@ class Messenger():
 		return data
 
 
+	@synchronized
 	def addBinding(self, channelId, function, data=False):
 		self.checkForChannel(channelId)
 		newBindingId = self.nextBindingId
@@ -49,23 +55,28 @@ class Messenger():
 		return newBindingId
 
 
+	@synchronized
 	def removeBinding(self, bindingId):
 		for channelId in self.channels:
 			if bindingId in self.channels[channelId]['bindings']:
 				del self.channels[channelId]['bindings'][bindingId]
 
 
+	@synchronized
 	def checkForChannel(self, channelId):
 		if not channelId in self.channels.keys():
 			self.channels[channelId] = {'messages' : [], 'bindings' : {}, 'queueMessages' : True}
 
+	@synchronized
 	def setQueuing(self, channelId, value):
 		self.checkForChannel(channelId)
 		self.channels[channelId]['queueMessages'] = value
 
+	@synchronized
 	def doReset(self):
 		self.channels = {}
 		self.nextBindingId = 1
+	@synchronized
 	def getCurrentStateData(self):
 		data = {}
 		for channelId in self.channels:

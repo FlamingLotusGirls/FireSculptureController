@@ -6,6 +6,7 @@ from ProgramModules import utils
 from . import IoParams
 class InputBase():
 	def __init__(self, configParams, instanceId):
+		self.stopped = False
 		self.configParams = utils.multiExtendSettings({'inParams' : [], 'outParams' : [], 'direct' : False}, configParams)
 		possibleInParamKeys = ['min', 'max', 'default', 'description', 'sendMessageOnChange', 'choices']
 		inParamKeys = [key for key in possibleInParamKeys if key in self.configParams]
@@ -65,6 +66,7 @@ class InputBase():
 
 
 	def stop(self):
+		self.stopped = True
 		if not self.configParams['direct']:
 			for input in self.inParams:
 				input.stop()

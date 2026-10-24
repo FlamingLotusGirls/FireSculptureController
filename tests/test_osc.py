@@ -1,7 +1,7 @@
 """Exercise OSC routing and listener lifecycle with local UDP packets."""
 from queue import Queue
 import threading
-from time import monotonic
+from time import monotonic, time
 
 import pytest
 from pythonosc.osc_bundle_builder import IMMEDIATELY, OscBundleBuilder
@@ -11,6 +11,7 @@ from pythonosc.udp_client import SimpleUDPClient
 from ProgramModules.InputManager import InputManager
 from ProgramModules.Messenger import Messenger
 import ProgramModules.sharedObjects as app
+from ProgramModules.Runtime import engineLock
 
 
 @pytest.fixture
@@ -32,11 +33,10 @@ def make_input(monkeypatch):
         source.stop()
         assert not source.server.is_alive()
         assert source.server.server.socket.fileno() == -1
-        # Timer joins belong to the later lifecycle phase; keep the test isolated now.
+        # stop() must also finish any pulse auto-OFF timer.
         for output in source.outParams:
             timer = getattr(output, "timer", False)
             if timer:
-                timer.thread.join(timeout=1)
                 assert not timer.thread.is_alive()
 
 
@@ -175,3 +175,66 @@ def test_stop_waits_for_an_active_callback_before_releasing_the_listener(make_in
         if stopper.ident is not None:
             stopper.join(timeout=2)
     assert not source.server.is_alive()
+
+
+def test_future_bundle_wait_is_cancelled_on_stop(make_input):
+    source = make_input(callbackAddresses={"pulse": [], "toggle": [], "value": ["/future"]})
+    entered = threading.Event()
+    dispatcher = source.server.server.dispatcher
+    original = dispatcher.call_handlers_for_packet
+    def dispatch(data, address):
+        entered.set()
+        return original(data, address)
+    dispatcher.call_handlers_for_packet = dispatch
+    bundle = OscBundleBuilder(time() + 3600)
+    message = OscMessageBuilder(address="/future")
+    message.add_arg(50)
+    bundle.add_content(message.build())
+    with client_for(source) as client:
+        client.send(bundle.build())
+        assert entered.wait(timeout=2)
+    start = monotonic()
+    source.stop()
+    assert monotonic() - start < 1
+    assert source.getValue(0) == 0
+
+
+def test_future_bundle_keeps_its_timetag_while_running(make_input):
+    source = make_input(callbackAddresses={"pulse": [], "toggle": [], "value": ["/future"]})
+    events = observe_outputs(source)
+    bundle = OscBundleBuilder(time() + 0.2)
+    message = OscMessageBuilder(address="/future")
+    message.add_arg(50)
+    bundle.add_content(message.build())
+    start = monotonic()
+    with client_for(source) as client:
+        client.send(bundle.build())
+        assert events.get(timeout=2) == (0, 50)
+    assert monotonic() - start >= 0.15
+
+
+def test_callback_can_stop_its_own_input_without_starting_an_auto_off_timer(make_input):
+    source = make_input(callbackAddresses={"pulse": ["/stop"], "toggle": [], "value": []})
+    app.messenger.addBinding("output%s_0" % source.getId(), source.stop)
+    with client_for(source) as client:
+        client.send_message("/stop", 1)
+    source.server.join(timeout=2)
+    assert not source.server.is_alive()
+    assert source.outParams[0].timer is False
+
+
+def test_stop_cancels_callback_waiting_for_controller_lock(make_input):
+    source = make_input(callbackAddresses={"pulse": [], "toggle": [], "value": ["/value"]})
+    entered = threading.Event()
+    dispatcher = source.server.server.dispatcher
+    original = dispatcher.call_handlers_for_packet
+    def dispatch(data, address):
+        entered.set()
+        return original(data, address)
+    dispatcher.call_handlers_for_packet = dispatch
+    with engineLock:
+        with client_for(source) as client:
+            client.send_message("/value", 50)
+        assert entered.wait(timeout=2)
+        source.stop()
+    assert source.getValue(0) == 0
