@@ -2,12 +2,17 @@
 keyboard bindings, timers, OSC messages, etc. There will be several broad types such as pulse and value, and any input of the same type
 will be interchangeable
 ''' 
+from __future__ import annotations
+from typing import Any, TYPE_CHECKING
+from ProgramModules.Interfaces import InputParameter
+from ProgramModules.Types import InputConfig, StateData
+
 from ProgramModules import utils
 from . import IoParams
 class InputBase():
-	def __init__(self, configParams, instanceId):
+	def __init__(self, configParams: InputConfig, instanceId: int) -> None:
 		self.stopped = False
-		self.configParams = utils.multiExtendSettings({'inParams' : [], 'outParams' : [], 'direct' : False}, configParams)
+		self.configParams: InputConfig = utils.multiExtendSettings({'inParams' : [], 'outParams' : [], 'direct' : False}, configParams)
 		possibleInParamKeys = ['min', 'max', 'default', 'description', 'sendMessageOnChange', 'choices']
 		inParamKeys = [key for key in possibleInParamKeys if key in self.configParams]
 		if inParamKeys:
@@ -16,8 +21,8 @@ class InputBase():
 				del self.configParams[key]
 		if 'setupParamsNeeded' in self.configParams.keys():
 			del self.configParams['setupParamsNeeded']
-		self.outParams = []
-		self.inParams = []
+		self.outParams: list[InputParameter] = []
+		self.inParams: list[InputParameter] = []
 		self.instanceId = instanceId
 		if self.configParams['direct']:
 			for paramIndex in range(len(self.configParams['inParams'])):
@@ -30,29 +35,30 @@ class InputBase():
 				self.outParams.append(self.makeIoParam(self.configParams['outParams'][paramIndex], paramIndex))
 
 
-	def setInputValue(self, value, settingIndex = 0):
+	def setInputValue(self, value: Any, settingIndex: int = 0) -> None:
 		self.inParams[settingIndex].setValue(value)
 		self.updateOutputValues()
 
 
-	def getValue(self, outputIndex = 0):
+	def getValue(self, outputIndex: int = 0) -> Any:
 		self.updateOutputValues()
 		return self.outParams[outputIndex].getValue()
 
 		
-	def makeIoParam(self, params, paramIndex=0):
+	def makeIoParam(self, params: InputConfig, paramIndex: int = 0) -> InputParameter:
+		# Parameter classes are selected by configuration; their interface is checked below.
 		paramClass = getattr(IoParams, utils.makeCamelCase([params['type'], 'param'], True))
 		return paramClass(params, self.instanceId, paramIndex)
 
-	def getId(self):
+	def getId(self) -> int:
 		return self.instanceId
 
 
-	def updateOutputValues(self):
+	def updateOutputValues(self) -> None:
 		pass
 
 
-	def getCurrentStateData(self):
+	def getCurrentStateData(self) -> StateData:
 		self.updateOutputValues()
 		data = self.configParams.copy()
 		data['inParams'] = []
@@ -65,10 +71,15 @@ class InputBase():
 		return data
 
 
-	def stop(self):
+	def stop(self) -> None:
 		self.stopped = True
 		if not self.configParams['direct']:
 			for input in self.inParams:
 				input.stop()
 		for output in self.outParams:
 			output.stop()
+
+
+if TYPE_CHECKING:
+	from ProgramModules.Interfaces import Input
+	_inputClass: type[Input] = InputBase

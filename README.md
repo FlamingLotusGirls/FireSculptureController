@@ -77,11 +77,13 @@ controller first; only one version should own the web and physical serial ports.
 ```text
 python -m pip install -r requirements-dev.txt
 python -m pytest -q
+python -m mypy
 ```
 
 The tests use recording transports, serial loopback, and local HTTP/UDP. The frozen
-Python 2 snapshot is excluded from Python 3 test discovery and type checking. Type
-annotations and a passing mypy check are the next separate migration step.
+Python 2 snapshot is excluded from Python 3 test discovery and type checking. Mypy
+checks the annotated active application and its configuration/interface definitions;
+runtime-selected input values and commands retain their documented dynamic boundaries.
 
 `SculptureController.py` can also run without the web server. See
 [developer notes](dev-notes.md) for the input, pattern, protocol, and adaptor interfaces,

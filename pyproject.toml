@@ -25,8 +25,6 @@ norecursedirs = ["py2", ".deps-py2", ".venv*", "artifacts", ".git", "__pycache__
 addopts = "--strict-config --strict-markers -ra"
 filterwarnings = ["error"]
 
-# Step 8 adds annotations and enables disallow_untyped_defs per completed package.
-# Keep current errors visible; this is configuration, not a claim that mypy passes yet.
 [tool.mypy]
 python_version = "3.11"
 files = ["SculptureController.py", "flaskServer.py", "sendOscTest.py", "Inputs", "Patterns", "ProgramModules"]
@@ -34,3 +32,7 @@ exclude = '(^|/)(py2|\.deps-py2|\.venv[^/]*|artifacts|tests|tools)(/|$)'
 warn_unused_configs = true
 show_error_codes = true
 pretty = true
+
+[[tool.mypy.overrides]]
+module = ["ProgramModules.*", "Inputs.*", "Patterns.*", "SculptureController", "flaskServer", "sendOscTest"]
+disallow_untyped_defs = true

@@ -1,10 +1,14 @@
+from __future__ import annotations
+from typing import Any
+from ProgramModules.Types import InputConfig
+
 from .InputBase import InputBase
 from threading import Event, Thread, current_thread
 from time import time
 from ProgramModules import utils
 from ProgramModules.Runtime import runCallback
 
-inputTypes = {
+inputTypes: dict[str, InputConfig] = {
 	'osc multi' : {
 		'longDescription' : 'OpenSoundControl server', 
 		'shortDescription' : 'OSC server', 
@@ -27,11 +31,11 @@ except ImportError:
 if 'unavailable' not in inputTypes['osc multi']:
 	class CancellableDispatcher(Dispatcher):
 		"""Keep bundle timetags, but cancel their wait when the input stops."""
-		def __init__(self):
+		def __init__(self) -> None:
 			super().__init__()
 			self.stopEvent = Event()
 
-		def call_handlers_for_packet(self, data, client_address):
+		def call_handlers_for_packet(self, data: bytes, client_address: tuple[str, int]) -> list[Any]:
 			try:
 				packet = OscPacket(data)
 			except ParseError:
@@ -41,7 +45,7 @@ if 'unavailable' not in inputTypes['osc multi']:
 				if self.stopEvent.wait(max(0, message.time - time())):
 					break
 				for handler in self.handlers_for_address(message.message.address):
-					result = runCallback(self.stopEvent, handler.invoke, client_address, message.message)
+					result: Any = runCallback(self.stopEvent, handler.invoke, client_address, message.message)
 					if result is not None:
 						results.append(result)
 			return results
@@ -49,19 +53,19 @@ if 'unavailable' not in inputTypes['osc multi']:
 
 class OscMultiInput(InputBase):
 	class OscServerThread(Thread):
-		def __init__(self, host, dispatcher):
+		def __init__(self, host: tuple[str, int], dispatcher: CancellableDispatcher) -> None:
 			Thread.__init__(self, name='osc-%s:%s' % host)
 			self.server = BlockingOSCUDPServer(host, dispatcher)
 			self.stopEvent = dispatcher.stopEvent
-			self.shutdownThread = None
+			self.shutdownThread: Thread | None = None
 
-		def run(self):
+		def run(self) -> None:
 			try:
 				self.server.serve_forever(poll_interval=0.05)
 			finally:
 				self.server.server_close()
 
-		def stop(self):
+		def stop(self) -> None:
 			self.stopEvent.set()
 			# shutdown() must run outside the serving thread, or it deadlocks.
 			if current_thread() is self:
@@ -74,11 +78,11 @@ class OscMultiInput(InputBase):
 			if self.shutdownThread is not None:
 				self.shutdownThread.join()
 
-	def __init__(self, params, *args):
+	def __init__(self, params: InputConfig, *args: Any) -> None:
 		params = utils.extendSettings(inputTypes['osc multi'], params)
 		params['port'] = int(params['port'])
 		self.outputTypes = ['pulse', 'toggle', 'value']
-		callbackAddresses = {}
+		callbackAddresses: dict[str, list[str]] = {}
 		callbacksInStringForm = False
 		for outputType in self.outputTypes:
 			callbackAddresses[outputType] = []
@@ -107,7 +111,7 @@ class OscMultiInput(InputBase):
 		self.persistant = True
 
 
-	def registerCallbacks(self, dispatcher):
+	def registerCallbacks(self, dispatcher: CancellableDispatcher) -> None:
 		# Match the output order used above: pulses, then toggles, then values.
 		outputIndex = 0
 		for callbackType in self.outputTypes:
@@ -117,22 +121,22 @@ class OscMultiInput(InputBase):
 				dispatcher.map(address, function, outputIndex)
 				outputIndex += 1
 
-	def stop(self):
+	def stop(self) -> None:
 		# Finish incoming callbacks before stopping their output parameters/timers.
 		self.server.stop()
 		InputBase.stop(self)
 
-	def doPulseCallback(self, path, fixedArgs, *values):
+	def doPulseCallback(self, path: str, fixedArgs: list[int], *values: Any) -> None:
 		if values:
 			outputIndex = fixedArgs[0]
 			self.outParams[outputIndex].setValue(values[0] in ['1', 1, 'true', 'True'])
 
-	def doToggleCallback(self, path, fixedArgs, *values):
+	def doToggleCallback(self, path: str, fixedArgs: list[int], *values: Any) -> None:
 		if values:
 			outputIndex = fixedArgs[0]
 			self.outParams[outputIndex].setValue(values[0])
 
-	def doValueCallback(self, path, fixedArgs, *values):
+	def doValueCallback(self, path: str, fixedArgs: list[int], *values: Any) -> None:
 		if values:
 			outputIndex = fixedArgs[0]
 			self.outParams[outputIndex].setValue(values[0])

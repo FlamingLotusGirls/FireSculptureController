@@ -5,6 +5,35 @@ for the byte-comparison procedure, intentional Python 2 differences, test covera
 and pending Pi checks. Application code keeps its tab indentation; prefer readable
 changes and leave `py2/` untouched.
 
+## Typing and extension interfaces
+
+`ProgramModules/Types.py` describes the existing sculpture, module, protocol, and
+adaptor JSON using `TypedDict`. Mappings retain their dictionary, one-dimensional,
+or two-dimensional list shapes; runtime-added IDs use `NotRequired`. These declarations
+do not parse, validate, or rewrite configuration. Input parameter dictionaries and
+mixed GUI snapshots use named dictionary aliases because their keys and values vary
+with the selected input/module.
+
+`ProgramModules/Interfaces.py` defines structural `typing.Protocol` interfaces for
+adaptors, protocol encoders, inputs/parameters, patterns, and sculpture modules. Concrete
+classes keep their existing inheritance. The `TYPE_CHECKING` declarations in the
+implementation modules and package initializers check that supported classes provide
+the required methods and types. When adding an implementation, add it to the matching
+declaration as well as its existing configuration/registration path, then run
+`python -m mypy`. The declarations are not runtime registries or fallback implementations.
+
+`Any` remains explicit where behavior is selected at runtime: input factories, command
+dispatch, `InputCollection.__getattr__` (a value or callable), forwarded argument lists,
+and heterogeneous input/message data. The recursive settings merge also accepts arbitrary
+nested values. The synchronization decorator preserves argument and result types with
+`ParamSpec`, so decorating a method does not erase its signature from the type checker.
+
+`cast` records an existing relationship, such as the mapping shape selected by a protocol
+or a manager installed by sculpture loading. It does not convert or validate a value.
+Existing `False`/`None` placeholders remain, including inactive pattern callbacks and
+input collections; annotations describe those objects when usable and do not add new
+runtime guards. Constructor forwarding remains dynamic where the old code used `*args`.
+
 ## Adaptors
 
 Adaptors represent the physical data path to the sculpture and handle things
@@ -22,10 +51,12 @@ instantiated by DataChannelManager when the SculptureController.loadSculpture
 method is invoked; type(s) and attributes such as port name and baudrate are
 specified in 'adaptors' key of the sculpture definition json file.
 
-Methods needed:
+The checked `Adaptor` interface describes these methods:
 
  * `connect(self)`: Establish an active connection according to self.configData
    values
+ * `updateSerialConnection(self, data)`: Apply port/baud settings and return whether
+   the connection opened
  * `transmitData(self, data)`: Write a `bytes` payload and return whether the complete
    payload was accepted by the serial driver. This is not a hardware acknowledgement.
  * `stop(self)`: Close any active connection and prepare for instance to be
@@ -54,13 +85,18 @@ file. Multiple protocols can use one adaptor(for example, on Tympani the LEDs
 and sound hammers are on the same physical data bus, but use different
 protocols). DataChannelManager associates each module's protocol with its bus writer.
 
-Methods needed:
+The checked `ProtocolEncoder` interface includes:
 
 * `formatData(self, addr, data)`: Takes an address(already translated to the
    sculpture mapping) and data and does the translation into the sculpture's
    data format as `bytes`. The type of data in addr and data may be different across
    different protocol types as this data varies with the type of thing being
    controlled and the addressing arrangement of the sculpture's hardware.
+* `translateAddr(self, addr)`: Translate a logical address to the configured hardware address.
+* `formatCommands(self, data)`: Concatenate an iterable of address/value commands as bytes.
+* `addresses(self)`: Iterate the mapped logical addresses in module order.
+* `allOff(self)`: Encode OFF for those addresses. DataChannelManager decides which
+  channels are governed by safe mode; the encoder itself does not deliver the result.
 
 
 ## Inputs
@@ -77,6 +113,11 @@ Each input type can have any number of params, which are objects that map to
 the knobs and buttons on the GUI. The most simple inputs directly map a param
 to their output value; more complex types generate timer pulses,
 respond to OSC messages, etc.
+
+The checked `Input` interface covers `setInputValue`, `getValue`, `getId`, `stop`, and
+`getCurrentStateData`. `InputParameter` covers the underlying value conversion, get/set,
+state, and cleanup methods. These interfaces retain dynamic values because pulse, numeric,
+text, and multi-input channels share the same framework.
 
 
 ## Patterns

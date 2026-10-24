@@ -1,12 +1,16 @@
+from __future__ import annotations
+from typing import Any
+
 from copy import deepcopy
 
-def makeCamelCase(parts, doFirstLetter = False):
+def makeCamelCase(parts: list[str], doFirstLetter: bool = False) -> str:
 	for i in range(len(parts)):
 		if (i > 0 or doFirstLetter) and len(parts[i]) > 0:
 			parts[i] = ''.join([parts[i][0].upper(), parts[i][1:]])
 	return ''.join(parts)
 
-def multiExtendSettings(*settings):
+def multiExtendSettings(*settings: Any) -> Any:
+	# Settings contain nested dicts, lists, and scalars; preserve those existing shapes.
 	i = len(settings) - 1
 	out = settings[i]
 	i-= 1
@@ -15,14 +19,14 @@ def multiExtendSettings(*settings):
 		i-=1
 	return out
 
-def extendSettings(defaults, settings):
+def extendSettings(defaults: Any, settings: Any) -> Any:
 	typesMatch = False
 	for type in [list, dict]:
 		if isinstance(defaults, type) and isinstance(settings, type):
 			typesMatch = True
 	if not typesMatch:
 		return deepcopy(settings)
-	out = False
+	out: Any = False
 	if isinstance(defaults, list):
 		if len(defaults) == len(settings):
 			out = []

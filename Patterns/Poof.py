@@ -1,8 +1,11 @@
+from __future__ import annotations
+from typing import Any
+
 from Patterns.PatternBase import PatternBase
 from ProgramModules.Timers import Timer
 import json
 class Chase(PatternBase):
-	def __init__(self, *args):
+	def __init__(self, *args: Any) -> None:
 		self.inputParams = {
 			'multiVal' : {
 				'descriptionInPattern' : 'Parameters',
@@ -56,7 +59,7 @@ class Chase(PatternBase):
 		self.position = 0
 		self.sequenceTriggered = True
 
-	def triggerStep(self, *args):
+	def triggerStep(self, *args: Any) -> None:
 		if self.inputs.triggerStep and self.sequenceTriggered:
 			self.requestUpdate()
 			self.position += self.inputs.stepping
@@ -70,13 +73,13 @@ class Chase(PatternBase):
 					self.requestUpdate()
 
 		
-	def triggerSequence(self, *args):
+	def triggerSequence(self, *args: Any) -> None:
 		if self.inputs.triggerSequence:
 			self.inputs.doCommand(['triggerStep', 'refresh'])
 			self.position = 0
 			self.sequenceTriggered = True
 			
-	def getState(self, row, col):
+	def getState(self, row: int, col: int) -> bool:
 		result = False
 		if self.inputs.reverse:
 			col = self.gridSize[1] - (col + 1)
@@ -97,7 +100,7 @@ class Chase(PatternBase):
 		return result
 		
 class AllPoof(PatternBase):
-	def __init__(self, *args):
+	def __init__(self, *args: Any) -> None:
 		self.inputParams = {
 			'poofButton' : {
 				'descriptionInPattern' : 'Poof!',
@@ -119,26 +122,26 @@ class AllPoof(PatternBase):
 		self.timer = Timer(False, self.inputs.stayOnTime, self.turnOff)
 		self.poofState = False
 
-	def poofButton(self, *args):
+	def poofButton(self, *args: Any) -> None:
 		if self.inputs.poofButton:
 			self.timer.changeInterval(self.inputs.stayOnTime)
 			self.timer.refresh()
 			self.poofState = True
 			self.requestUpdate()
 	
-	def turnOff(self):
+	def turnOff(self) -> None:
 		self.poofState = False
 		self.requestUpdate()
 
-	def getState(self, row, col):
+	def getState(self, row: int, col: int) -> bool:
 		return self.poofState
 		
-	def stop(self):
+	def stop(self) -> None:
 		self.timer.stop()
 		PatternBase.stop(self)
 		
 class RandomPoof(PatternBase):
-	def __init__(self, gridSize, *args):
+	def __init__(self, gridSize: list[int], *args: Any) -> None:
 		self.inputParams = {
 			'randomGenerator' : {
 				'descriptionInPattern' : 'Random generator',
@@ -152,9 +155,9 @@ class RandomPoof(PatternBase):
 		self.patternName = 'Random Poof'
 		self.poofStates = [[False for i in range(self.gridSize[1])] for i in range(self.gridSize[0])]
 
-	def changePooferState(self, input, index):
+	def changePooferState(self, input: str, index: int) -> None:
 		self.poofStates[index // self.gridSize[1]][index % self.gridSize[1]] = self.inputs.randomGenerator(index)
 		self.requestUpdate()
 
-	def getState(self, row, col):
+	def getState(self, row: int, col: int) -> bool:
 		return self.poofStates[row][col]

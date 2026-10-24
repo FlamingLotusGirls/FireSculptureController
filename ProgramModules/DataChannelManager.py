@@ -3,6 +3,14 @@
 Normal traffic preserves command order. Recovery replaces queued history with the most
 recent state, so a failed OFF cannot be forgotten and old pulses are not replayed.
 """
+from __future__ import annotations
+from .Interfaces import Adaptor, ProtocolEncoder
+from .Types import (
+	AddressKey, AdaptorConfig, AdaptorUpdate, OutputCommands, SafeModeBinding,
+	SculptureConfig, StateData,
+)
+from typing import cast
+
 import logging
 from dataclasses import dataclass
 from queue import Empty, Full, Queue
@@ -25,15 +33,15 @@ class PendingWrite:
 
 
 class ChannelState:
-	def __init__(self, protocol):
+	def __init__(self, protocol: ProtocolEncoder) -> None:
 		self.protocol = protocol
 		self.protected = isinstance(protocol, Protocols.FlgRelayProtocol) and not protocol.ignoreSafeMode
 		self.generation = 0
-		self.values = {}
+		self.values: dict[AddressKey, bytes] = {}
 		if self.protected:
 			self.setOff()
 
-	def setOff(self):
+	def setOff(self) -> None:
 		self.values = {
 			address: self.protocol.formatData(self.protocol.translateAddr(address), False)
 			for address in self.protocol.addresses()
@@ -48,26 +56,26 @@ class AdaptorThread(Thread):
 	MAX_QUEUE_AGE = 0.25
 	RETRY_INTERVAL = 0.25
 
-	def __init__(self, adaptor):
+	def __init__(self, adaptor: Adaptor) -> None:
 		super().__init__(name='serial-' + adaptor.configData['adaptorId'])
 		self.adaptor = adaptor
-		self.channels = {}
-		self.queue = Queue(maxsize=self.QUEUE_LIMIT)
-		self.offPending = {}
+		self.channels: dict[str, ChannelState] = {}
+		self.queue: Queue[PendingWrite | None] = Queue(maxsize=self.QUEUE_LIMIT)
+		self.offPending: dict[str, bytes] = {}
 		self.needsResync = False
 		self.needsConnect = False
 		self.accepting = True
 		self.stopEvent = Event()
 		self.idleEvent = Event()
 		self.idleEvent.set()
-		self.lastError = None
+		self.lastError: str | None = None
 		# Lock order is safe-mode lock, then adaptor lock. The writer never calls engine callbacks.
 		self.lock = app.safeMode.lock
 
-	def registerChannel(self, moduleId, protocol):
+	def registerChannel(self, moduleId: str, protocol: ProtocolEncoder) -> None:
 		self.channels[moduleId] = ChannelState(protocol)
 
-	def send(self, moduleId, commands) -> bool:
+	def send(self, moduleId: str, commands: OutputCommands) -> bool:
 		with self.lock:
 			if not self.accepting:
 				return False
@@ -94,7 +102,7 @@ class AdaptorThread(Thread):
 				self._requestResync('Serial queue full; replacing history with current state')
 			return True  # Accepted, not acknowledged by the hardware.
 
-	def allOff(self):
+	def allOff(self) -> None:
 		with self.lock:
 			if not self.accepting:
 				return
@@ -107,13 +115,13 @@ class AdaptorThread(Thread):
 				self.idleEvent.clear()
 				self._wake()
 
-	def _wake(self):
+	def _wake(self) -> None:
 		try:
 			self.queue.put_nowait(None)
 		except Full:
 			pass  # An existing item already makes the reader runnable.
 
-	def _requestResync(self, reason, reconnect=False):
+	def _requestResync(self, reason: str, reconnect: bool = False) -> None:
 		self.lastError = reason
 		logger.warning('%s: %s', self.name, reason)
 		self.needsResync = True
@@ -161,11 +169,11 @@ class AdaptorThread(Thread):
 			del self.offPending[moduleId]
 		return True
 
-	def _updateIdle(self):
+	def _updateIdle(self) -> None:
 		if self.queue.empty() and not self.offPending and not self.needsResync:
 			self.idleEvent.set()
 
-	def run(self):
+	def run(self) -> None:
 		try:
 			while not self.stopEvent.is_set():
 				with self.lock:
@@ -201,11 +209,11 @@ class AdaptorThread(Thread):
 		finally:
 			self.adaptor.stop()
 
-	def flush(self, timeout=2.0) -> bool:
+	def flush(self, timeout: float = 2.0) -> bool:
 		"""Wait for accepted writes/recovery, not a hardware acknowledgement."""
 		return self.idleEvent.wait(timeout)
 
-	def stop(self, timeout=2.0) -> bool:
+	def stop(self, timeout: float = 2.0) -> bool:
 		with self.lock:
 			self.accepting = False
 		completed = self.flush(timeout)
@@ -218,7 +226,7 @@ class AdaptorThread(Thread):
 			raise RuntimeError('Serial writer did not stop: ' + self.name)
 		return completed
 
-	def updateSerialConnection(self, data) -> bool:
+	def updateSerialConnection(self, data: AdaptorUpdate) -> bool:
 		with self.lock:
 			if not self.accepting:
 				return False
@@ -226,7 +234,7 @@ class AdaptorThread(Thread):
 			self._requestResync('Serial configuration changed; restoring current state', reconnect=not connected)
 			return connected
 
-	def getCurrentStateData(self):
+	def getCurrentStateData(self) -> StateData:
 		with self.lock:
 			data = self.adaptor.getCurrentStateData()
 			data['deliveryPending'] = not self.idleEvent.is_set()
@@ -235,24 +243,24 @@ class AdaptorThread(Thread):
 
 
 class DataChannelManager:
-	def __init__(self, sculptureConfigData):
-		self.adaptors = {}
-		self.dataChannels = {}
-		self.moduleAdaptors = {}
+	def __init__(self, sculptureConfigData: SculptureConfig) -> None:
+		self.adaptors: dict[str, AdaptorThread] = {}
+		self.dataChannels: dict[str, ProtocolEncoder] = {}
+		self.moduleAdaptors: dict[str, AdaptorThread] = {}
 		self.stopped = False
-		self.safeModeBinding = None
+		self.safeModeBinding: SafeModeBinding | None = None
 		self.shutdownComplete = False
 		try:
 			for adaptorId, settings in sculptureConfigData['adaptors'].items():
-				config = dict(settings, adaptorId=adaptorId)
-				className = config['type'][0].upper() + config['type'][1:] + 'Adaptor'
-				adaptor = getattr(Adaptors, className)(config)
+				adaptorConfig = cast(AdaptorConfig, dict(settings, adaptorId=adaptorId))
+				className = adaptorConfig['type'][0].upper() + adaptorConfig['type'][1:] + 'Adaptor'
+				adaptor: Adaptor = getattr(Adaptors, className)(adaptorConfig)
 				self.adaptors[adaptorId] = AdaptorThread(adaptor)
 			for moduleId, config in sculptureConfigData['modules'].items():
 				kind = config['protocol']['type']
 				protocolClass = getattr(Protocols, kind[0].upper() + kind[1:] + 'Protocol')
 				# The manager uses the protocol as an encoder and owns asynchronous delivery.
-				protocol = protocolClass(None, config['protocol'])
+				protocol: ProtocolEncoder = protocolClass(None, config['protocol'])
 				self.dataChannels[moduleId] = protocol
 				writer = self.adaptors[config['adaptor']]
 				writer.registerChannel(moduleId, protocol)
@@ -275,14 +283,14 @@ class DataChannelManager:
 					logger.exception('Failed to close partially initialized serial writer')
 			raise
 
-	def send(self, moduleId, commands) -> bool:
+	def send(self, moduleId: str, commands: OutputCommands) -> bool:
 		return self.moduleAdaptors[moduleId].send(moduleId, commands)
 
-	def allOff(self):
+	def allOff(self) -> None:
 		for writer in self.adaptors.values():
 			writer.allOff()
 
-	def flush(self, timeout=2.0) -> bool:
+	def flush(self, timeout: float = 2.0) -> bool:
 		deadline = monotonic() + timeout
 		return all(writer.flush(max(0, deadline - monotonic())) for writer in self.adaptors.values())
 
@@ -310,8 +318,8 @@ class DataChannelManager:
 		self.shutdownComplete = all(completed)
 		return self.shutdownComplete
 
-	def updateSerialConnection(self, adaptorId, data) -> bool:
+	def updateSerialConnection(self, adaptorId: str, data: AdaptorUpdate) -> bool:
 		return self.adaptors[adaptorId].updateSerialConnection(data)
 
-	def getCurrentStateData(self):
+	def getCurrentStateData(self) -> dict[str, StateData]:
 		return {name: writer.getCurrentStateData() for name, writer in self.adaptors.items()}

@@ -2,6 +2,10 @@
 keyboard bindings, timers, OSC messages, etc. There will be several broad types such as pulse and value, and any input of the same type
 will be interchangeable
 ''' 
+from __future__ import annotations
+from typing import Any
+from ProgramModules.Types import InputConfig
+
 from ProgramModules.Timers import Timer
 from ProgramModules import utils
 from .InputBase import InputBase
@@ -9,7 +13,7 @@ import json
 import time
 import random
 
-inputTypes = {
+inputTypes: dict[str, InputConfig] = {
 	'timer pulse' : {
 		'longDescription' : 'Timer pulse input, variable timing',
 		'shortDescription' : 'Timer Pulse',
@@ -93,31 +97,31 @@ inputTypes = {
 
 
 class TimerPulseInput(InputBase):
-	def __init__(self, *args):
+	def __init__(self, *args: Any) -> None:
 		InputBase.__init__(self, *args)
 		self.timer = Timer(True, self.inParams[0].getValue(), getattr(self, 'sendPulse'))
 
-	def stop(self):
+	def stop(self) -> None:
 		self.timer.stop()
 		InputBase.stop(self)
 
-	def refresh(self):
+	def refresh(self) -> None:
 		self.timer.refresh()
 
-	def sendPulse(self):
+	def sendPulse(self) -> None:
 		self.outParams[0].setValue(True)
 
 
-	def setInputValue(self, *args):
+	def setInputValue(self, *args: Any) -> None:
 		InputBase.setInputValue(self, *args)
 		self.timer.changeInterval(self.inParams[0].getValue())
 		
-	def updateOutputValues(self):
+	def updateOutputValues(self) -> None:
 		pass
 
 
 class BasicMultiInput(InputBase):
-	def __init__(self, configParams, *args):
+	def __init__(self, configParams: InputConfig, *args: Any) -> None:
 		configParams = utils.multiExtendSettings({'inParams' : []}, configParams)
 		inParamKeys = [key for key in ['min', 'max', 'default', 'description', 'choices'] if key in configParams]
 		for i in range(configParams['number']):
@@ -135,20 +139,20 @@ class BasicMultiInput(InputBase):
 		InputBase.__init__(self, configParams, *args)
 
 class RandomPulseInput(InputBase):
-	def __init__(self, *args):
+	def __init__(self, *args: Any) -> None:
 		InputBase.__init__(self, *args)
 		self.checkTimer = Timer(True, 200, self.doCheck)
 		self.numPulses = 1
 		self.onStates = [False]
 		self.offTimers = [Timer(False, self.inParams[1].getValue(), self.turnOff, (0,))]
 
-	def stop(self):
+	def stop(self) -> None:
 		self.checkTimer.stop()
 		for i in range(self.numPulses):
 			self.offTimers[i].stop()
 		InputBase.stop(self)
 		
-	def doCheck(self):
+	def doCheck(self) -> None:
 		rarity = int(self.inParams[0].getValue())
 		minTime = int(self.inParams[1].getValue())
 		maxTime = int(self.inParams[2].getValue())
@@ -159,11 +163,11 @@ class RandomPulseInput(InputBase):
 				self.offTimers[i].changeInterval(duration)
 				self.offTimers[i].refresh()
 				
-	def turnOff(self, index):
+	def turnOff(self, index: int) -> None:
 		self.outParams[index].setValue(False)
 		
 class RandomPulseMultiInput(RandomPulseInput):
-	def __init__(self, params, *args):
+	def __init__(self, params: InputConfig, *args: Any) -> None:
 		params = utils.multiExtendSettings(inputTypes['random pulse'], inputTypes['randomPulse multi'], params)
 		self.numPulses = params['number']
 		for inputIndex in range(len(params['inParams'])):

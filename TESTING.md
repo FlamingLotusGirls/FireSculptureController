@@ -106,13 +106,23 @@ and `MANIFEST.in` exclude the legacy tree and local environments. Deployment use
 source checkout, not a wheel. Keep `config.json`, `sculptureDefinitions/`, and `jsGui/`
 alongside the root scripts.
 
-The mypy configuration targets Python 3.11 and the active application only. The annotation
-pass and a passing `python -m mypy` are step 8; step 7 does not suppress existing typing
-errors or claim they have been fixed.
+Run the type checker separately:
+
+```text
+python -m mypy
+```
+
+The configuration targets Python 3.11 and the 26 active source files, with
+`disallow_untyped_defs` enabled for the application packages and entry points. There
+are no blanket error suppressions. Configuration schemas and structural interfaces are
+in `ProgramModules/Types.py` and `ProgramModules/Interfaces.py`; supported implementations
+are checked through `TYPE_CHECKING` declarations. See
+[typing boundaries](dev-notes.md#typing-and-extension-interfaces) for deliberate dynamic
+values and the steps for adding an implementation. Mypy does not validate JSON at runtime.
 
 ## Recorded verification and remaining field checks
 
-Step 7 results are recorded in [the migration plan](PLAN_python3.md). The Windows checks
+Step 7 and 8 results are recorded in [the migration plan](PLAN_python3.md). The Windows checks
 use Python 3.13.17 and Python 3.11.15, with Python 2.7.18 for the fresh reference. The
 3.11 run uses the same installed runtime/pytest packages via `PYTHONPATH`; it is not a
 separate clean dependency installation. Requirements are pinned to the verified local

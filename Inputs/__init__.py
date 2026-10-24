@@ -1,3 +1,6 @@
+from collections.abc import Callable
+from typing import Literal, TYPE_CHECKING
+from ProgramModules.Types import InputConfig
 from ProgramModules import utils
 
 from .InputBase import InputBase
@@ -5,10 +8,10 @@ from .Basic import TimerPulseInput, BasicMultiInput, RandomPulseInput, RandomPul
 from .Osc import OscMultiInput
 
 from . import Osc, Basic
-inputTypes = utils.multiExtendSettings(Basic.inputTypes, Osc.inputTypes)
-availableInputTypes = {}
+inputTypes: dict[str, InputConfig] = utils.multiExtendSettings(Basic.inputTypes, Osc.inputTypes)
+availableInputTypes: dict[str, list[str]] = {}
 for key in inputTypes.keys():
-	subType = False
+	subType: str | Literal[False] = False
 	parts = key.split(' ')
 	type = parts[-1]
 	if len(parts) > 1:
@@ -17,4 +20,11 @@ for key in inputTypes.keys():
 		availableInputTypes[type] = []
 	if subType:
 		availableInputTypes[type].append(subType)
+
+
+if TYPE_CHECKING:
+	from ProgramModules.Interfaces import Input
+	_inputClasses: tuple[Callable[[InputConfig, int], Input], ...] = (
+		InputBase, TimerPulseInput, BasicMultiInput, RandomPulseInput, RandomPulseMultiInput, OscMultiInput,
+	)
 

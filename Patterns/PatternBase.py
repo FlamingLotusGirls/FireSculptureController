@@ -1,37 +1,48 @@
 
+from __future__ import annotations
+from collections.abc import Callable
+from typing import Any, TYPE_CHECKING, cast
+from ProgramModules.Types import InputConfig, StateData
+
+if TYPE_CHECKING:
+	from ProgramModules.InputManager import InputCollection
+
 import ProgramModules.sharedObjects as app
 
 
 class PatternBase():
-	def __init__ (self, gridSize, instanceId):
+	inputParams: dict[str, InputConfig]
+
+	def __init__(self, gridSize: list[int], instanceId: str) -> None:
 		self.gridSize = gridSize
-		self.requestUpdate = False
+		# Callbacks and inputs are installed before use; retain False when absent or stopped.
+		self.requestUpdate = cast(Callable[[], None], False)
 		self.patternName = ''
 		self.instanceId = instanceId
 		try:
 			self.inputParams
 		except:
-			self.inputs = False
+			self.inputs = cast('InputCollection', False)
 		else:
 			self.inputs = app.inputManager.buildInputCollection(self, self.inputParams)
 
-	def reassignInput(self, *args):
+	def reassignInput(self, *args: Any) -> None:
 		self.inputs.reassignInput(*args)
 
 
-	def stop(self):
+	def stop(self) -> None:
 		self.inputs.stop()
-		self.requestUpdate = False
-		self.inputs = False
+		self.requestUpdate = cast(Callable[[], None], False)
+		self.inputs = cast('InputCollection', False)
 
 
-	def getCurrentStateData(self):
+	def getCurrentStateData(self) -> StateData:
 		return({'name' : self.patternName, 'inputs' : self.inputs.getCurrentStateData()})
 	
 
-	def setUpdateFunction(self, function):
+	def setUpdateFunction(self, function: Callable[[], None]) -> None:
 		self.requestUpdate = function
 
 
-	def getId(self):
+	def getId(self) -> str:
 		return self.instanceId

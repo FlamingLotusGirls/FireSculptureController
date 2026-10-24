@@ -343,7 +343,31 @@ Original checklist:
 - Add `tests/` with pytest. Details are in Verification below. Tests land *before* the
   typing pass so they guard it.
 
-**8. Type hints and mypy.** A separate reviewable step after the port, so the type changes
+**8. Type hints and mypy — completed 2026-10-24.**
+
+Annotated every function in the active application and added `Types.py` for existing JSON
+schemas/value types and `Interfaces.py` for structural contracts. Supported adaptor,
+protocol, input, pattern, and module classes have static conformance declarations.
+Mypy retains signatures through the synchronization decorator and rejects unannotated
+definitions in the application packages and entry points. Dynamic factories, command
+dispatch, input lookup/values, and heterogeneous settings remain explicitly documented.
+
+Kept tab indentation, runtime JSON shapes, placeholders, dispatch, and wire behavior.
+Small local bindings and `cast` calls express relationships that the old code already
+established; no runtime validators, abstract fallback methods, or new guards were added.
+The OSC example's cast accounts for python-osc annotating its context manager with the
+base client type while returning the same concrete client.
+
+Verification: mypy passes for all 26 active source files with no blanket suppressions.
+All 46 tests pass with warnings as errors and no skips on Python 3.11.15 and 3.13.17,
+including the 59 application scenarios, 92 protocol cases, and preserved-file checks.
+The function audit finds no missing annotations. Deliberately invalid examples confirmed
+that mypy rejects a missing serial write method, an incomplete input interface, a
+text-returning protocol, and an integer serial-port name. Pi/hardware checks remain
+separate; the Serpent LED wire protocol and HeartBeat waveform remain stubbed.
+
+Original checklist:
+A separate reviewable step after the port, so the type changes
 are not tangled with the porting diff. Keep annotations readable.
 - Annotate arguments and returns on essentially all functions and methods in
   `ProgramModules/`, `Inputs/`, `Patterns/`, `SculptureController.py` and `flaskServer.py`.
@@ -391,7 +415,7 @@ for that future work:
 | Boundary | Python 2 behaviour | Python 3 | Plan |
 |---|---|---|---|
 | **Serial write** ([Adaptors.py](ProgramModules/Adaptors.py), `connection.write`) | `str` was bytes, so `"!0111."` just worked | `write()` needs `bytes`. A `str` raises `TypeError`, which the bare `except:` hides. | **Step 3:** protocols return `bytes`, the whole path is typed `bytes`, and a loopback test asserts the exact bytes. |
-| Serial read | Not implemented (no sculpture sends data back) | Would be `bytes` | Type `receiveData -> bytes` in the adaptor `Protocol`, still unimplemented. |
+| Serial read | Not implemented (no sculpture sends data back) | Would be `bytes` | The adaptor interface describes implemented operations; add a `receiveData -> bytes` contract when receive support is implemented. |
 | HTTP request body (`request.data` in [flaskServer.py](flaskServer.py)) | `str` | `bytes`. `json.loads` accepts bytes on 3.6+, so it works, but use `request.get_json(force=True)`. | Step 6. |
 | SSE stream (`/dataStream`) | `str` | `str`; Flask encodes it as UTF-8 | Nothing to change beyond simplifying the encoder (S5). |
 | **OSC (UDP)** ([Osc.py](Inputs/Osc.py)) | pyOSC gives `str` args | `python-osc` handles the byte-level packet encoding itself. Arguments arrive as `int`/`float`/`str`/`bool`, and TouchOSC-style apps send floats like `1.0`. | Step 5. The existing `in ['1', 1, 'true', 'True']` check still matches `1.0` because `1.0 == 1`. |

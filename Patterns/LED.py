@@ -2,6 +2,10 @@
 # Its controls and renderer are preserved for a future ECG beat source.
 # SciPy and NumPy are no longer required.
 
+from __future__ import annotations
+from typing import Any, cast
+from ProgramModules.Types import RGB
+
 import json
 import logging
 
@@ -14,7 +18,7 @@ logger = logging.getLogger(__name__)
 class LED(object):
 	"""A representation of an LED to capture position and light values."""
 
-	def __init__(self, color_triple=None):
+	def __init__(self, color_triple: RGB | None = None) -> None:
 		"""Initialize.
 
 		Args:
@@ -24,14 +28,14 @@ class LED(object):
 			self.color_triple = (0, 0, 0)
 		else:
 			self.color_triple = color_triple
-		self._brightness = 0
+		self._brightness: float = 0
 
 	@property
-	def color_triple(self):
+	def color_triple(self) -> RGB:
 		return self._color_triple
 
 	@color_triple.setter
-	def color_triple(self, color_triple):
+	def color_triple(self, color_triple: RGB) -> None:
 		if color_triple[0] < 0 or color_triple[0] > 255:
 			msg = ('color_triple[0] must be between 0 and 255, '
 			       'was %s instead' % color_triple[0])
@@ -46,7 +50,7 @@ class LED(object):
 			raise ValueError(msg)
 		self._color_triple = color_triple
 
-	def getColorWithBrightness(self):
+	def getColorWithBrightness(self) -> RGB:
 		"""Get the color value with applied brightness as a hex string.
 
 		For example, if the color value would be (255,255,0), the hex
@@ -56,14 +60,14 @@ class LED(object):
 		brightness_triple[0] = int(brightness_triple[0]*self.brightness)
 		brightness_triple[1] = int(brightness_triple[1]*self.brightness)
 		brightness_triple[2] = int(brightness_triple[2]*self.brightness)
-		return tuple(brightness_triple)
+		return cast(RGB, tuple(brightness_triple))
 
 	@property
-	def brightness(self):
+	def brightness(self) -> float:
 		return self._brightness
 
 	@brightness.setter
-	def brightness(self, brightness):
+	def brightness(self, brightness: float) -> None:
 		"""Set brightness as a value 0 <= x <= 1."""
 		if brightness < 0:
 			raise ValueError("'brigthness must not be smaller than 0'")
@@ -75,7 +79,7 @@ class LED(object):
 class LEDGrid(object):
 	"""A two-dimensional grid of LEDs."""
 
-	def __init__(self, row_count, col_count, default_color_triple=None):
+	def __init__(self, row_count: int, col_count: int, default_color_triple: RGB | None = None) -> None:
 		"""Initialize.
 
 		Args:
@@ -86,25 +90,25 @@ class LEDGrid(object):
 		self._col_count = col_count
 		if not default_color_triple:
 			default_color_triple = (0, 0, 0)
-		self._leds = []
+		self._leds: list[list[LED]] = []
 		self._leds = [[LED(default_color_triple)
 			       for col in range(col_count)]
 			      for row in range(row_count)]
 
 	@property
-	def row_count(self):
+	def row_count(self) -> int:
 		return self._row_count
 
 	@property
-	def col_count(self):
+	def col_count(self) -> int:
 		return self._col_count
 
-	def getLED(self, row, col):
+	def getLED(self, row: int, col: int) -> LED:
 		"""Returns the LED at (row,column)."""
 		return self._leds[row][col]
 
 	@staticmethod
-	def getDistance(left, right):
+	def getDistance(left: tuple[int, int], right: tuple[int, int]) -> tuple[int, int]:
 		"""Computes the distance of one LED to another LED.
 
 		Args:
@@ -138,7 +142,7 @@ class HeartBeat(PatternBase):
 	# (the further away, the darker).
 	DISTANCE_DIFF = 0.05
 
-	def __init__(self, *args):
+	def __init__(self, *args: Any) -> None:
 		# Passed in via SculptureModuleBase.addPattern().
 		grid_size = args[0]
 		self.row_count = grid_size[0]
@@ -249,8 +253,8 @@ class HeartBeat(PatternBase):
 					 (self._red, self._green, self._blue))
 		self._heart_row = -1
 		self._heart_col = -1
-		self._heart_led = None
-		self._max_distance = -1
+		self._heart_led: LED | None = None
+		self._max_distance: int | tuple[int, int] = -1
 		# Note that this sets the self._heart_... attributes.
 		self._update_heart_position(0, self.inputs.heart_pos)
 		self._max_distance = (0, 0)
@@ -266,12 +270,12 @@ class HeartBeat(PatternBase):
 		# Index of the currently used heart brightness value.
 		self._led_values_index = 0
 
-	def _compute_heart_values(self):
+	def _compute_heart_values(self) -> list[float]:
 		"""Return zero brightness until the ECG beat source is connected."""
 		# TODO: replace this placeholder with values driven by the ECG beat recognizer.
 		return [0.0]
 
-	def _update_heart_position(self, row, col):
+	def _update_heart_position(self, row: int, col: int) -> None:
 		"""Set a new heart position and update related values."""
 		logger.info('HeartBeat._update_heart_position(%s, %s)',
 			    row, col)
@@ -283,7 +287,7 @@ class HeartBeat(PatternBase):
 			LEDGrid.getDistance((self.row_count, self.col_count),
 					    (row, col)))
 
-	def _update_color(self, color_triple):
+	def _update_color(self, color_triple: RGB) -> None:
 		"""Update the color of all LEDs.
 
 		Args:
@@ -296,7 +300,7 @@ class HeartBeat(PatternBase):
 		self._green = self.inputs.green
 		self._blue = self.inputs.blue
 
-	def _update_non_heart_leds(self):
+	def _update_non_heart_leds(self) -> None:
 		"""Update all LEDs that are not the heart LED.
 
 		This function iterates through all LEDs, and adjusts their
@@ -311,12 +315,12 @@ class HeartBeat(PatternBase):
 				# Use the smaller of the two dimensional
 				# values.
 				min_dist = max(distance[0], distance[1])
-				new_brightness = (self._heart_led.brightness -
+				new_brightness = (cast(LED, self._heart_led).brightness -
 						  min_dist*self.DISTANCE_DIFF)
 				new_brightness = max(0, new_brightness)
 				self._led_grid.getLED(row, col).brightness = new_brightness
 
-	def _update_leds(self):
+	def _update_leds(self) -> None:
 		"""Update all LEDs.
 
 		This function determines the new heart brightness value, then
@@ -332,10 +336,10 @@ class HeartBeat(PatternBase):
 		# Determine the brightness based on the precomputed value and
 		# the max_brightness multiplier.
 		brightness = self._led_values[self._led_values_index]
-		self._heart_led.brightness = brightness
+		cast(LED, self._heart_led).brightness = brightness
 		self._update_non_heart_leds()
 
-	def triggerStep(self, *args):
+	def triggerStep(self, *args: Any) -> None:
 		"""Run one step in the pattern.
 
 		If input values have been updated, also update the local values
@@ -362,13 +366,13 @@ class HeartBeat(PatternBase):
 			self._update_leds()
 			self.requestUpdate()
 
-	def triggerSequence(self, *args):
+	def triggerSequence(self, *args: Any) -> None:
 		if self.inputs.triggerSequence:
 			logging.info('HeartBeat.triggerSequence() called.')
 			self.inputs.doCommand(['triggerStep', 'refresh'])
 			self.sequenceTriggered = True
 
-	def getState(self, row, col):
+	def getState(self, row: int, col: int) -> RGB:
 		if (row < 0) or (row >= self._led_grid.row_count):
 			return (0, 0, 0)
 		elif (col < 0) or (col >= self._led_grid.col_count):
@@ -380,7 +384,7 @@ class HeartBeat(PatternBase):
 class Image(object):
 	"""A container class for Image data."""
 
-	def __init__(self, name, path):
+	def __init__(self, name: str, path: str) -> None:
 		# Name of the image.
 		self.name = name
 		# Path to the image
@@ -399,7 +403,7 @@ class FromImage(PatternBase):
 		"2": Image("image 3", "path/to/image3"),
 		}
 
-	def __init__(self, *args):
+	def __init__(self, *args: Any) -> None:
 		# A dictionary of image IDs (as defined in 'supported_images'
 		# above) to image names shown in the UI.
 		choices = {}
@@ -429,7 +433,7 @@ class FromImage(PatternBase):
 		self.patternName = 'From Image'
 		self._current_image_id = "0"
 
-	def updateButtonPressed(self, *args):
+	def updateButtonPressed(self, *args: Any) -> None:
 		"""Change behavor when the user pressed the update button."""
 		# Through the magic of the framework, user-provided input data
 		# can be found in self.inputs.
@@ -448,9 +452,9 @@ class FromImage(PatternBase):
 		if self.inputs.updateButton:
 			self.requestUpdate()
 
-	def getState(self, row, col):
+	def getState(self, row: int, col: int) -> str:
 		"""Return state of the LED at [row,col]."""
 		return self._current_image_id
 
-	def stop(self):
+	def stop(self) -> None:
 		PatternBase.stop(self)
