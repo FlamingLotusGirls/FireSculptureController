@@ -71,8 +71,8 @@ for use by patterns. Currently, every pattern can accept three types of inputs:
 
 Each input type can have any number of params, which are objects that map to
 the knobs and buttons on the GUI. The most simple inputs directly map a param
-to their output value, more complex types generate audio-responsive pulses,
-respond to OSC servers, etc.
+to their output value; more complex types generate timer pulses,
+respond to OSC messages, etc.
 
 
 ## Patterns

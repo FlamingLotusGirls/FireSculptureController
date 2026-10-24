@@ -1,5 +1,5 @@
 ''' An input is anything that creates a value for patterns to use. These can be numerical parameters(which will be set by the GUI), physical devices,
-keyboard bindings, timers, audio pulse thingeys, etc. There will be several broad types such as pulse and value, and any input of the same type 
+keyboard bindings, timers, OSC messages, etc. There will be several broad types such as pulse and value, and any input of the same type
 will be interchangeable
 ''' 
 from ProgramModules import utils

@@ -1,6 +1,4 @@
 flask
 pyserial
 gevent
-pyaudio
-numpy
 #pyOSC

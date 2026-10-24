@@ -25,7 +25,7 @@ class SculptureController():
 		self.availableGlobalInputs = []
 		self.sculptureConfig = False
 
-		for inputType in [['multi', 'osc'], ['pulse', 'audio'], ['multi', 'basic']]:
+		for inputType in [['multi', 'osc'], ['multi', 'basic']]:
 			if not 'unavailable' in Inputs.inputTypes[' '.join([inputType[1], inputType[0]])].keys():
 				self.availableGlobalInputs.append(inputType)
 		for definitionFileName in os.listdir(definitionFileDirectory):

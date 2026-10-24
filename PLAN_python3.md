@@ -68,7 +68,14 @@ The existing relay and Tympani LED protocols still receive the Python 3 bytes co
   Run one controller at a time against a physical port. Verify the original can still be
   launched after the port is present, without checking out another branch.
 
-**1. Remove audio from the Python 3 application only.**
+**1. Remove audio from the Python 3 application only — completed 2026-10-24.**
+
+Removed the active audio implementation, registration, dependencies, and documentation
+references. Verified all 59 existing byte scenarios match the Python 2 baseline and all
+75 preserved snapshot files retain their original hashes. No Python 3 syntax conversion
+in this step; the verification runner still uses Python 2.7.
+
+Original checklist:
 Delete [Inputs/Audio.py](Inputs/Audio.py). Then edit these places:
 - [Inputs/__init__.py](Inputs/__init__.py): drop the `Audio` import and its `inputTypes` entry.
 - [SculptureController.py:28](SculptureController.py#L28): drop `['pulse','audio']` from the

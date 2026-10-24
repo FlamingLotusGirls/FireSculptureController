@@ -22,11 +22,6 @@ Server for js GUI:
 * flask
 
 
-Audio pulse:
-
-* pyaudio
-
-
 Patterns:
 
 * scipy (LED HeartBeat pattern)
