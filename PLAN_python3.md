@@ -131,7 +131,26 @@ Original checklist (active application only, excluding `py2/`):
   in the application checks below.
 - Leave the tab indentation alone in this step (see simplification S7).
 
-**3. Serial: `str` → `bytes` (the big Python 3 type change), loopback, non-spinning writer.**
+**3. Serial bytes, loopback, and blocking writer — completed 2026-10-24.**
+
+Converted protocol output and serial writes to bytes, added `serial_for_url` support and
+integer baud-rate updates, and replaced the spinning writer with a bounded blocking
+queue. Failed delivery, full queues, and expired backlog restore current output state;
+failed OFF commands retry without another module update. Safe-mode transitions cancel
+queued governed relay commands and prioritize all-OFF while retaining Tympani's exempt
+controls. Serial shutdown is bounded, and the writer owns closing its connection.
+Delivery semantics and limits are documented in `dev-notes.md`.
+
+Verification: 16 focused transport checks pass with warnings treated as errors on Python
+3.11.15 and 3.13.17, using `loop://` and controlled failures. The unchanged Python 2
+protocols and Python 3 protocols produce identical bytes across 92 cases covering all
+mapped outputs in all three sculptures, both safe-mode states, and representative values.
+The Serpent LED protocol remains empty. All 75 preserved snapshot hashes match; sculpture
+configurations and GUI assets remain unchanged. The 59-scenario full-application comparison
+still awaits the later dependency/server changes; physical serial and Pi checks are pending.
+Focused transport tests were brought forward from step 7 to verify this delivery change.
+
+Original checklist:
 This is the Python 3 serial/network type issue. See the boundary table below. It is the
 riskiest change in the port, because `serial.write()` needs `bytes` and the current bare
 `except:` in `SerialAdaptor.transmitData` would swallow the `TypeError` and only log
