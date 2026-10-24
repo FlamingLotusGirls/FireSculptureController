@@ -19,6 +19,10 @@ behavior and limits.
 HeartBeat remains selectable with its existing controls, but its waveform is an inert
 placeholder: all LEDs stay black. The active application no longer needs SciPy or NumPy.
 
+OSC now uses `python-osc`. Its configurable listener defaults to `0.0.0.0:8000`, and
+each configured address controls its own output. See [OSC input](dev-notes.md#osc-input)
+for routing, shutdown behavior, and the local test sender.
+
 ## Requirements
 
 Python 2.7 (2.7.6 on Win7 due to greenlet installation issues)
@@ -39,7 +43,7 @@ Server for js GUI:
 
 OSC server:
 
-* pyOSC
+* python-osc
 
 
 ## Usage

@@ -141,7 +141,7 @@ each writer gets up to two seconds to finish delivery. It is then woken and join
 writer closes its own connection as it exits. An undelivered state is logged and shutdown
 returns `False`; an unresponsive writer is an error rather than permission to close a port
 underneath it.
-Broader timer, OSC, process-signal, and controller-reload cleanup remains in step 6.
+Broader timer, process-signal, and controller-reload cleanup remains in step 6.
 
 Status fields `deliveryPending` and `writerError` distinguish accepted work from completed
 writes; `lastError` reports adaptor I/O failure. `connected` means the serial connection is
@@ -161,3 +161,36 @@ Tests use `loop://` and controlled fake adaptors. The original/protocol comparis
 skipped if no Python 2 interpreter is available; the remaining transport checks still run.
 The 59-scenario full-application comparison remains separate and awaits completion of the
 Python 3 dependency/server changes.
+
+## OSC input
+
+The active application uses `python-osc`. The GUI's Host, Port, and three address-list
+fields are unchanged. A new listener defaults to `0.0.0.0:8000` (all IPv4 interfaces);
+set Host to `127.0.0.1` for local-only operation. The port accepts the GUI's integer or
+text value. `sendOscTest.py` sends one `/1/button1` pulse to `127.0.0.1:8000` using
+`SimpleUDPClient`; run it with `python sendOscTest.py` while the listener is running.
+
+Outputs retain their configured order: pulse addresses, then toggle addresses, then
+value addresses. Each address is registered with its own output index. This corrects the
+old address parser, which sent normal addresses to output zero. GUI address strings are
+split on whitespace; submitting empty lists now leaves them empty instead of restoring
+the default addresses. The `callbackAddresses` dictionary remains supported.
+
+Messages use their first argument. Pulse ON values retain the existing interpretation
+(`1`, `1.0`, `True`, `"1"`, `"true"`, or `"True"`); other values mean OFF. Existing pulse
+auto-OFF timing, toggle conversion, and numeric input bounds are retained. Messages with
+no arguments and unregistered addresses are ignored. Immediate bundles run in order.
+
+One blocking server handles callbacks sequentially on its own thread. `stop()` calls
+`shutdown()` from the caller's thread, then joins the listener; the listener closes its
+socket on exit. An idle listener checks shutdown every 50 ms and needs no incoming packet
+to stop. Repeated stops are supported, and the port can be reused after stopping.
+
+Shutdown waits for an active callback to finish. Future bundle timetags retain their
+existing scheduling behavior and can also delay shutdown; this is not a hard shutdown
+deadline. Calling `stop()` from an OSC callback raises an explicit error instead of
+deadlocking. Broader callback coordination and timer cleanup remain in step 6.
+
+Run `python -m pytest tests/test_osc.py -q` for local UDP routing, pulse auto-OFF, GUI
+configuration, bundle ordering, and listener shutdown/rebind checks. These checks use
+ephemeral ports and do not contact sculpture hardware.

@@ -223,7 +223,27 @@ from your ECG code with beat recognition, so:
 pulse inputs. A beat recognizer could send an OSC `/heart/beat` message, which the OSC input
 (kept) turns into a pulse that `triggerStep` can bind to, with no further plumbing.
 
-**5. OSC: pyOSC → python-osc.**
+**5. OSC: pyOSC → python-osc — completed 2026-10-24.**
+
+Moved the listener to `Dispatcher` and `BlockingOSCUDPServer`, bound each configured
+address to its output index, and replaced the example sender with `SimpleUDPClient`.
+The listener defaults to `0.0.0.0:8000`; the existing GUI setup fields and public input
+class remain. Empty GUI address lists now stay empty. The active requirements and README
+use `python-osc`; delivery and shutdown behavior are documented in `dev-notes.md`.
+
+Verification: seven local UDP checks cover independent pulse/toggle/value routing,
+TouchOSC-style floats, pulse auto-OFF, GUI address strings, immediate bundles, empty
+messages, idle stop/repeated port reuse, and waiting for an active callback. All 23 OSC
+and serial checks pass with warnings treated as errors on Python 3.11.15 and 3.13.17;
+controller import and OSC registration also pass on both. All 75 Python 2 snapshot hashes
+match. Network-device/Pi checks and the full-application comparison remain pending.
+
+Listener stop does not require a new packet. It still waits for active callbacks and
+future bundle timetags, preserving scheduling behavior; broader lifecycle coordination
+remains in step 6. Stopping from the serving callback thread is explicitly rejected to
+avoid a self-deadlock.
+
+Original checklist:
 Rewrite the server thread in [Inputs/Osc.py](Inputs/Osc.py) onto
 `pythonosc.dispatcher.Dispatcher` and `BlockingOSCUDPServer`. `serve_forever()` runs in the
 thread. Stop it from another thread with `shutdown()`, close its socket with

@@ -1,8 +1,8 @@
 
-import OSC
-c = OSC.OSCClient()
-c.connect(("127.0.0.2", 8000))
-bundle = OSC.OSCBundle()
-bundle.append({'addr' : '/1/button1', 'args' : ['1']})
-bundle.setAddress('/1/button1')
-c.send(bundle)
+"""Send one pulse to the controller's default local OSC listener."""
+from pythonosc.udp_client import SimpleUDPClient
+
+
+if __name__ == '__main__':
+	with SimpleUDPClient('127.0.0.1', 8000) as client:
+		client.send_message('/1/button1', '1')
