@@ -1,0 +1,5 @@
+{
+  "inputs" : [
+    {"type" : "multi", "subType" : "osc", "description" : "OSC server"}
+  ]
+}

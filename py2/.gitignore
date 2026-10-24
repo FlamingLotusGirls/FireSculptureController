@@ -1,0 +1,5 @@
+*.pyc
+profile.py
+results.s
+output.txt
+__pycache__/*

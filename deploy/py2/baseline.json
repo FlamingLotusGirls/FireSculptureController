@@ -1,0 +1,171 @@
+{
+  "aota/poofers/AllPoof-off": {
+    "flameBus": "!0110.!0120.!0130.!0140.!0150.!0160.!0170.!0180.!0210.!0220.!0230.!0240.!0250.!0260.!0270.!0280."
+  }, 
+  "aota/poofers/AllPoof-on": {
+    "flameBus": "!0111.!0121.!0131.!0141.!0151.!0161.!0171.!0181.!0211.!0221.!0231.!0241.!0251.!0261.!0271.!0281."
+  }, 
+  "aota/poofers/Chase-0": {
+    "flameBus": "!0111.!0121.!0151.!0161.!0211.!0221.!0251.!0261."
+  }, 
+  "aota/poofers/Chase-1": {
+    "flameBus": "!0110.!0131.!0150.!0171.!0210.!0231.!0250.!0271."
+  }, 
+  "aota/poofers/Chase-3": {
+    "flameBus": "!0120.!0130.!0141.!0160.!0170.!0181.!0220.!0230.!0241.!0260.!0270.!0281."
+  }, 
+  "aota/poofers/Chase-7": {
+    "flameBus": "!0140.!0180.!0240.!0280."
+  }, 
+  "aota/poofers/manual-off": {
+    "flameBus": "!0110."
+  }, 
+  "aota/poofers/manual-on": {
+    "flameBus": "!0111."
+  }, 
+  "serpent/leds/FromImage": {}, 
+  "serpent/leds/HeartBeat": {}, 
+  "serpent/leds/manual-off": {}, 
+  "serpent/leds/manual-on": {}, 
+  "serpent/poofers/AllPoof-off": {
+    "flameBus": "!0110.!0120.!0130.!0140.!0150.!0160.!0210.!0220.!0230.!0240.!0250.!0260.!0310.!0320.!0330.!0340.!0350.!0360.!0410.!0420.!0430.!0440.!0450.!0460.!0510.!0520.!0530.!0540.!0550.!0560.!0610.!0620.!0630.!0640.!0650.!0660.!0710.!0720.!0730.!0740.!0750.!0760."
+  }, 
+  "serpent/poofers/AllPoof-on": {
+    "flameBus": "!0111.!0121.!0131.!0141.!0151.!0161.!0211.!0221.!0231.!0241.!0251.!0261.!0311.!0321.!0331.!0341.!0351.!0361.!0411.!0421.!0431.!0441.!0451.!0461.!0511.!0521.!0531.!0541.!0551.!0561.!0611.!0621.!0631.!0641.!0651.!0661.!0711.!0721.!0731.!0741.!0751.!0761."
+  }, 
+  "serpent/poofers/Chase-0": {
+    "flameBus": "!0111.!0121."
+  }, 
+  "serpent/poofers/Chase-1": {
+    "flameBus": "!0110.!0131."
+  }, 
+  "serpent/poofers/Chase-3": {
+    "flameBus": "!0120.!0130.!0141.!0151."
+  }, 
+  "serpent/poofers/Chase-7": {
+    "flameBus": "!0140.!0150.!0221.!0231."
+  }, 
+  "serpent/poofers/manual-off": {
+    "flameBus": "!0110."
+  }, 
+  "serpent/poofers/manual-on": {
+    "flameBus": "!0111."
+  }, 
+  "tympani/buttons/disableA/False": {
+    "flameBus": "!0470."
+  }, 
+  "tympani/buttons/disableA/True": {
+    "flameBus": "!0471."
+  }, 
+  "tympani/buttons/disableR/False": {
+    "flameBus": "!0270."
+  }, 
+  "tympani/buttons/disableR/True": {
+    "flameBus": "!0271."
+  }, 
+  "tympani/buttons/safe-exempt": {
+    "flameBus": "!0471."
+  }, 
+  "tympani/clackers/AllPoof-off": {
+    "ledBus": "!0210.!0220.!0230.!0240.!0250.!0260.!0270.!0280.!0310.!0320.!0330.!0340.!0350.!0360.!0370.!0380."
+  }, 
+  "tympani/clackers/AllPoof-on": {
+    "ledBus": "!0211.!0221.!0231.!0241.!0251.!0261.!0271.!0281.!0311.!0321.!0331.!0341.!0351.!0361.!0371.!0381."
+  }, 
+  "tympani/clackers/Chase-0": {
+    "ledBus": "!0211.!0221."
+  }, 
+  "tympani/clackers/Chase-1": {
+    "ledBus": "!0210.!0231."
+  }, 
+  "tympani/clackers/Chase-3": {
+    "ledBus": "!0220.!0230.!0241.!0251."
+  }, 
+  "tympani/clackers/Chase-7": {
+    "ledBus": "!0240.!0250.!0281.!0311."
+  }, 
+  "tympani/clackers/RandomPoof-off-0": {
+    "ledBus": "!0210."
+  }, 
+  "tympani/clackers/RandomPoof-off-15": {
+    "ledBus": "!0380."
+  }, 
+  "tympani/clackers/RandomPoof-on-0": {
+    "ledBus": "!0211."
+  }, 
+  "tympani/clackers/RandomPoof-on-15": {
+    "ledBus": "!0381."
+  }, 
+  "tympani/clackers/manual-off": {
+    "ledBus": "!0210."
+  }, 
+  "tympani/clackers/manual-on": {
+    "ledBus": "!0211."
+  }, 
+  "tympani/leds/autoColor/False": {
+    "ledBus": "!140400."
+  }, 
+  "tympani/leds/autoColor/True": {
+    "ledBus": "!140401."
+  }, 
+  "tympani/leds/autoPropigation/False": {
+    "ledBus": "!140500."
+  }, 
+  "tympani/leds/autoPropigation/True": {
+    "ledBus": "!140501."
+  }, 
+  "tympani/leds/colorList/0": {
+    "ledBus": "!140100."
+  }, 
+  "tympani/leds/colorList/1": {
+    "ledBus": "!140101."
+  }, 
+  "tympani/leds/flash/False": {
+    "ledBus": "!140300."
+  }, 
+  "tympani/leds/flash/True": {
+    "ledBus": "!140301."
+  }, 
+  "tympani/leds/propigationList/0": {
+    "ledBus": "!140200."
+  }, 
+  "tympani/leds/propigationList/1": {
+    "ledBus": "!140201."
+  }, 
+  "tympani/poofers/AllPoof-off": {
+    "flameBus": "!0310.!0320.!0330.!0340.!0350.!0360.!0370.!0380.!0410.!0420.!0430.!0440.!0450.!0460.!0110.!0120.!0130.!0140.!0150.!0160.!0170.!0180.!0210.!0220.!0230.!0240.!0250.!0260."
+  }, 
+  "tympani/poofers/AllPoof-on": {
+    "flameBus": "!0311.!0321.!0331.!0341.!0351.!0361.!0371.!0381.!0411.!0421.!0431.!0441.!0451.!0461.!0111.!0121.!0131.!0141.!0151.!0161.!0171.!0181.!0211.!0221.!0231.!0241.!0251.!0261."
+  }, 
+  "tympani/poofers/Chase-0": {
+    "flameBus": "!0311.!0321.!0111.!0121."
+  }, 
+  "tympani/poofers/Chase-1": {
+    "flameBus": "!0310.!0331.!0110.!0131."
+  }, 
+  "tympani/poofers/Chase-3": {
+    "flameBus": "!0320.!0330.!0341.!0351.!0120.!0130.!0141.!0151."
+  }, 
+  "tympani/poofers/Chase-7": {
+    "flameBus": "!0340.!0350.!0381.!0411.!0140.!0150.!0181.!0211."
+  }, 
+  "tympani/poofers/RandomPoof-off-0": {
+    "flameBus": "!0310."
+  }, 
+  "tympani/poofers/RandomPoof-off-27": {
+    "flameBus": "!0260."
+  }, 
+  "tympani/poofers/RandomPoof-on-0": {
+    "flameBus": "!0311."
+  }, 
+  "tympani/poofers/RandomPoof-on-27": {
+    "flameBus": "!0261."
+  }, 
+  "tympani/poofers/manual-off": {
+    "flameBus": "!0310."
+  }, 
+  "tympani/poofers/manual-on": {
+    "flameBus": "!0311."
+  }
+}

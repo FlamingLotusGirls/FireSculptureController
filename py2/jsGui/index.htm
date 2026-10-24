@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>Fire Sculpture Control</title>
+  <script type="text/javascript" src="jsGui/lib/jquery-ui-1.10.4.custom/js/jquery-1.10.2.js"></script>
+  <script type="text/javascript" src="jsGui/lib/jquery-ui-1.10.4.custom/js/jquery-ui-1.10.4.custom.min.js"></script>
+  <script type="text/javascript" src="jsGui/lib/jquery-knob/js/jquery.knob.js"></script>
+  <script type="text/javascript" src="jsGui/lib/jsrender/jsrender.min.js"></script>
+  <script type="text/javascript" src="jsGui/ui.js"></script>
+
+  <link rel="stylesheet" type="text/css" href="jsGui/style.css">
+  <link rel="stylesheet" type="text/css" href="jsGui/lib/jquery-ui-1.10.4.custom/css/trontastic/jquery-ui-1.10.4.custom.css">
+  <script type="text/javascript">
+    $(document).ready(function(e) {
+      doInit();
+    });
+  </script>
+
+</head>
+<body>
+  <div id="mainDiv"></div>
+  <div id="dialog"></div>
+  <div id="storageDiv" style="display:none">
+  <div id="logStorage"></div>
+  </div>
+</body>
+
+
+<script id="sculptureControllerTemplate" type="text/x-jsrender">
+  <span class="ui-widget-content ui-corner-all sculptureHeading">{{>sculptureName}}</span>
+  <div id="fuckYouInTheEarCss">
+    <div id="safeButtonDiv">
+      <input type="radio" id="safeModeOn" name="radio" value="on" {{if safeMode}}checked="checked"{{/if}}><label for="safeModeOn" class="safeModeLabel">Safe</label>
+      <input type="radio" id="safeModeOff" name="radio" value="off" {{if safeMode}} {{else}}checked="checked"{{/if}}><label for="safeModeOff" class="safeModeLabel">Run</label>
+    </div>
+  </div>
+  <div style="clear:both; height:0px; overflow:hidden;">&nbsp;</div>
+    <div id="sculptureControl" style="height:100%; width:70%; float:left;">
+      <ul id="sculptureControlTabLabels">
+        <li><a href="#main_module" onclick="setCurrentModuleView('main');">Main</a></li>
+        {{for modules}}
+          <li><a href="#{{>moduleId}}_module" onclick="setCurrentModuleView('{{>moduleId}}')">{{>name}}</a></li>
+        {{/for}}
+      </ul>
+      <div id="main_module">
+        <div id="adaptors" style="margin:0px 0px 15px 0px" class="serialAdaptorInput ui-widget ui-widget-content ui-corner-all">
+          {{for serialAdaptors}}
+            <span style="text-align:center; display:inline-block; width:100px; font-weight:bold" class="serialAdaptorInput ui-widget ui-widget-content ui-corner-all ui-state-active">{{>adaptorId}}</span>
+            <label for="{{>adaptorId}}Baudrate" class="serialAdaptorInputLabel">Baudrate</label>
+            <input id="{{>adaptorId}}Baudrate" value="{{>baudrate}}" class="serialAdaptorInput ui-widget ui-widget-content ui-corner-all ui-state-active">
+            <label for="{{>adaptorId}}Ports" class="serialAdaptorInputLabel">Ports(separated by space)</label>
+            <input id="{{>adaptorId}}Ports" value="{{>ports}}" class="serialAdaptorInput ui-widget ui-widget-content ui-corner-all ui-state-active">
+            <button class="serialAdaptorUpdateButton" id="{{>adaptorId}}_UpdateButton">Change</button>
+            <br>
+          {{/for}}
+        </div>
+        <button id="addGlobalInputButton">Add new input</button>
+        <div id="globalInputs" class="accordion">
+          {{for globalInputs}}
+            <h3 id="{{>value}}_heading" onclick="showGlobalInput({{>value}})">{{>name}} input</h3>
+            <div id="globalInput_{{>value}}">
+              <div style="float:right; height:300px;">
+               <button id="stopGlobalInputButton_{{>value}}" class="globalInputButton">Stop input</button>
+             </div>
+            </div>
+          {{/for}}
+        </div>
+      </div>
+      {{for modules}}
+        <div id="{{>moduleId}}_module">
+        </div>
+      {{/for}}
+    </div>
+    <div id="logDivOuter" style="float:left; width:25%; height:100%; padding:1px; margin:0px 0px 0px 10px;" class=" ui-widget ui-widget-content ui-corner-all">
+      <div>
+        <input id="sendDirectCommandInput" class=" ui-widget ui-widget-content ui-corner-all"><button id="sendDirectCommandButton">Send</button>
+      </div>
+      <div id="logDiv" style="width:100%; height:90%; overflow-x:hidden; overflow-y:auto; margin: 0px; padding:0px;"></div>
+    </div>
+  </div>
+  <div style="display:none;">
+    <div id="inputs" style="margin:0px; padding:0px;">
+      {{for inputs}}
+        <div style="display:none;" id="inputInstance{{>inputInstanceId}}_div" class="ui-widget ui-widget-content ui-corner-all ui-state-active inputOuterWrapper">
+          <span class="inputDescription" id="inputInstance{{>inputInstanceId}}_description"></span>
+          {{for inParams}}
+            <div id="inputInstance{{>inputInstanceId}}_input{{>inputIndex}}_outerContainer" class="inputControlWrapper">
+              <div id="inputInstance{{>inputInstanceId}}_input{{>inputIndex}}_container" style="position:relative;"></div>
+              <span class="inputControlDescription" id="inputInstance{{>inputInstanceId}}_input{{>inputIndex}}_description"></span>
+            </div>
+          {{/for}}
+          <div class="inputOutputWrapper">
+            {{for outParams}}
+              <div id="inputInstance{{>inputInstanceId}}_output{{>outputIndex}}_container" class="inputSubOutputWrapper">
+              </div>
+            {{/for}}
+          </div>
+        </div>
+      {{/for}}
+    </div>
+  </div>
+</script>
+
+<script id="sculptureChooserTemplate" type="text/x-jsrender">
+  <span class="ui-widget-content ui-corner-all sculptureHeading">Choose Sculpture</span>
+  <div style="clear:both;">
+  {{for sculptures}}
+    <br>
+    <button class="sculptureChoice" id="{{>sculptureId}}_button" style="margin:10px 0px 0px 20px">{{>sculptureName}}</button>
+  {{/for}}
+  </div>
+</script>
+<script id="inputOnlyModuleTemplate" type="text/x-jsrender">
+  <div id="{{>moduleId}}_inputs" class="ui-widget ui-widget-content ui-corner-all" style="height:500px;">
+  </div>
+</script>
+
+<script id="ledModuleTemplate" type="text/x-jsrender">
+
+  <div style="float:left;">
+    <div id="{{>moduleId}}_outputView" class="outputView">
+      {{for rows}}
+        <div id="{{>moduleId}}_outputView_row{{>rowIndex}}"
+	     class="outputViewRow">
+          {{for cols}}
+            <input type="checkbox"
+		   id="{{>moduleId}}_{{>rowIndex}}_{{>colIndex}}_outputView"
+		   class="ledDisplay">
+            <label for="{{>moduleId}}_{{>rowIndex}}_{{>colIndex}}_outputView"
+		   id="{{>moduleId}}_{{>rowIndex}}_{{>colIndex}}_label"
+		   class="ledDisplayLabel"></label>
+          {{/for}}
+        </div>
+      {{/for}}
+    </div>
+    <div id="{{>moduleId}}_enableView"
+	 class="enableView"
+	 style="margin: 5px 0px 15px 0px;">
+      {{for rows}}
+        <div id="{{>moduleId}}_enableView_row{{>rowIndex}}">
+          {{for cols}}
+            <input type="checkbox"
+		   id="{{>moduleId}}_{{>rowIndex}}_{{>colIndex}}_enable"
+		   class="enableControl" {{if enabled}}checked="checked"{{/if}}>
+            <label for="{{>moduleId}}_{{>rowIndex}}_{{>colIndex}}_enable"
+		   id="{{>moduleId}}_{{>rowIndex}}_{{>colIndex}}_enableLabel"
+		   class="enableControlLabel" ></label>
+          {{/for}}
+        </div>
+      {{/for}}
+    </div>
+  </div>
+  <div style="float:right;">
+    <select id="{{>moduleId}}_patternChoices"
+	    onChange="addPattern('{{>moduleId}}')" class="addPattern">
+      <option value="none">Add Pattern</option>
+      {{for availablePatternNames}}
+        <option value="{{>name}}">{{>name}}</option>
+      {{/for}}
+    </select>
+  </div>
+  <div style="clear:both; height:10px; width:100%"></div>
+  <div id="{{>moduleId}}_patterns" class="accordion">
+    {{for patterns}}
+      <h3 id="{{>patternInstanceId}}_heading"
+	  onclick="showPatternDetails('{{>moduleId}}', '{{>patternInstanceId}}')">
+	{{>patternName}} pattern
+      </h3>
+      <div id="{{>moduleId}}_pattern{{>patternInstanceId}}">
+        <div style="float:left; width:0px; height:300px;"></div>
+        <div style="float:right; text-align:center; height:250px; width:125px; margin:10px; padding:5px" class="ui-widget ui-widget-content ui-corner-all">
+          <button id="{{>moduleId}}_{{>patternInstanceId}}_removePattern"
+		  class="removePatternButton" style="margin-bottom:20px;">
+	    Remove pattern
+	  </button>
+          {{for rowSettings}}
+            <br>
+            <input type="checkbox"
+		   id="{{>moduleId}}_{{>patternInstanceId}}_{{>rowIndex}}_toggleRow"
+		   {{if enabled}}checked = "checked"{{/if}}
+		   class="toggleRowButton">
+            <label for="{{>moduleId}}_{{>patternInstanceId}}_{{>rowIndex}}_toggleRow"
+		   class="toggleRowLabel">
+	      Row {{>rowIndex}} {{if enabled}}Enabled{{else}}Disabled{{/if}}
+	    </label>
+          {{/for}}
+        </div>
+      </div>
+    {{/for}}
+  </div>
+</script>
+
+<script id="pooferModuleTemplate" type="text/x-jsrender">
+  <div style="float:left;">
+    <div id="{{>moduleId}}_outputView" class="outputView">
+      {{for rows}}
+        <div id="{{>moduleId}}_outputView_row{{>rowIndex}}" class="outputViewRow">
+          {{for cols}}
+            <input type="checkbox" id="{{>moduleId}}_{{>rowIndex}}_{{>colIndex}}_outputView" class="pooferDisplay">
+            <label for="{{>moduleId}}_{{>rowIndex}}_{{>colIndex}}_outputView" id="{{>moduleId}}_{{>rowIndex}}_{{>colIndex}}_label" class="pooferDisplayLabel"></label>
+          {{/for}}
+        </div>
+      {{/for}}
+    </div>
+    <div id="{{>moduleId}}_enableView" class="enableView" style="margin: 5px 0px 15px 0px;">
+      {{for rows}}
+        <div id="{{>moduleId}}_enableView_row{{>rowIndex}}">
+          {{for cols}}
+            <input type="checkbox" id="{{>moduleId}}_{{>rowIndex}}_{{>colIndex}}_enable" class="enableControl" {{if enabled}}checked="checked"{{/if}}>
+            <label for="{{>moduleId}}_{{>rowIndex}}_{{>colIndex}}_enable" id="{{>moduleId}}_{{>rowIndex}}_{{>colIndex}}_enableLabel" class="enableControlLabel" ></label>
+          {{/for}}
+        </div>
+      {{/for}}
+    </div>
+  </div>
+  <div style="float:right;">
+    <select id="{{>moduleId}}_patternChoices" onChange="addPattern('{{>moduleId}}')" class="addPattern">
+      <option value="none">Add Pattern</option>
+      {{for availablePatternNames}}
+        <option value="{{>name}}">{{>name}}</option>
+      {{/for}}
+    </select>
+  </div>
+  <div style="clear:both; height:10px; width:100%"></div>
+  <div id="{{>moduleId}}_patterns" class="accordion">
+    {{for patterns}}
+      <h3 id="{{>patternInstanceId}}_heading" onclick="showPatternDetails('{{>moduleId}}', '{{>patternInstanceId}}')">{{>patternName}} pattern</h3>
+      <div id="{{>moduleId}}_pattern{{>patternInstanceId}}">
+        <div style="float:left; width:0px; height:300px;"></div>
+        <div style="float:right; text-align:center; height:250px; width:125px; margin:10px; padding:5px" class="ui-widget ui-widget-content ui-corner-all">
+          <button id="{{>moduleId}}_{{>patternInstanceId}}_removePattern" class="removePatternButton" style="margin-bottom:20px;">Remove pattern</button>
+          {{for rowSettings}}
+            <br>
+            <input type="checkbox" id="{{>moduleId}}_{{>patternInstanceId}}_{{>rowIndex}}_toggleRow" {{if enabled}}checked = "checked"{{/if}} class="toggleRowButton">
+            <label for="{{>moduleId}}_{{>patternInstanceId}}_{{>rowIndex}}_toggleRow" class="toggleRowLabel">Row {{>rowIndex}} {{if enabled}}Enabled{{else}}Disabled{{/if}}</label>
+          {{/for}}
+        </div>
+      </div>
+    {{/for}}
+  </div>
+</script>
+
+<script id="knobTemplate" type="text/x-jsrender">
+  <input id="{{>id}}" value="{{>currentValue}}" data-width="90" data-height="90" data-max="{{>max}}" data-min="{{>min}}" data-skin="tron" data-displayprevious=true class="knob" data-thickness=".25">
+</script>
+<script id="checkButtonTemplate" type="text/x-jsrender">
+  <input id="{{>id}}" {{>checked}} type="checkbox"><label for="{{>id}}" style="width:75px; height:75px;" class="inputControl"> </label>
+</script>
+<script id="buttonTemplate" type="text/x-jsrender">
+  <button id="{{>id}}" style="width:75px; height:75px;" class="inputControl"></button>
+</script>
+<script id="choiceTextTemplate" type="text/x-jsrender">
+  <div id="{{>id}}">
+    {{for choices}}
+      <input type="radio" name="{{>inputInstanceId}}Radio" value="{{>inputInstanceId}}_{{>value}}" id="{{>inputInstanceId}}_{{>value}}_choice" class="choiceInputItem">
+      <label for="{{>inputInstanceId}}_{{>value}}_choice" class="choiceInputItemLabel">{{>name}}</label>
+    {{/for}}
+  </div>
+</script>
+<script id="textInputTemplate" type="text/x-jsrender">
+  <input id="{{>id}}" {{if value}} value="{{>value}}" {{/if}}class="ui-widget ui-widget-content ui-corner-all">
+</script>
+
+
+<script id="selectTemplate" type="text/x-jsrender">
+  <select id="{{>id}}" {{:onChange}}>
+    {{for options}}
+      <option value="{{>value}}">{{>description}}</option>
+    {{/for}}
+  </select>
+
+</script>
+<script id="formFieldsTemplate" type="text/x-jsrender">
+  {{for fields}}
+    <label for="{{>id}}">{{>label}}</label><br>
+    {{if input}}
+      {{if value}}
+         <input id="{{>id}}" value="{{>value}}">
+      {{else}}
+         <input id="{{>id}}">
+      {{/if}}
+    {{else checkbox}}
+      <input type="checkbox" id="{{>id}}">
+    {{else}}
+      god fucking dammit
+    {{/if}}
+    <br>
+  {{/for}}
+
+</script>
+
+
+</html>

@@ -1,0 +1,131 @@
+{
+  "sculptureId" : "tympani",
+  "sculptureName" : "Tympani Lambada",
+  "adaptors" : {
+    "flameBus" : {"type" : "serial", "baudrate" : 19200, "ports" : ["COM26"]}, 
+    "ledBus" : {"type" : "serial", "baudrate" : 19200, "ports" : ["COM22"]}
+  },
+  "modules" : {
+    "poofers" : {
+      "name" : "Poofers",
+      "moduleType" : "Poofer",
+      "adaptor" : "flameBus",
+      "protocol" : {
+        "type" : "flgRelay",
+        "resendDataInterval" : 400,
+        "mapping" : [
+          [[3, 1], [3, 2], [3, 3], [3, 4], [3, 5], [3, 6], [3, 7], [3, 8], [4, 1], [4, 2], [4, 3], [4, 4], [4, 5], [4, 6]],
+          [[1, 1], [1, 2], [1, 3], [1, 4], [1, 5], [1, 6], [1, 7], [1, 8], [2, 1], [2, 2], [2, 3], [2, 4], [2, 5], [2, 6]]
+        ]
+      },
+      "patternType" : "Poof",
+      "patterns" : ["Chase", "AllPoof", "RandomPoof"]
+      
+    },
+    "clackers" : {
+      "name" : "Sound hammers",
+      "moduleType" : "Poofer",
+      "adaptor" : "ledBus",
+      "protocol" : {
+        "type" : "flgRelay",
+        "resendDataInterval" : 400,
+        "mapping" : [
+          [[2, 1], [2, 2], [2, 3], [2, 4], [2, 5], [2, 6], [2, 7], [2, 8], [3, 1], [3, 2], [3, 3], [3, 4], [3, 5], [3, 6], [3, 7], [3, 8]]
+        ]
+      },
+      "patternType" : "Poof",
+      "patterns" : ["Chase", "AllPoof", "RandomPoof"]
+    },
+    "leds" : {
+      "name" : "Mobius Leds",
+      "moduleType" : "InputOnly",
+      "adaptor" : "ledBus",
+      "inputs" : {
+        "colorList" : {
+          "descriptionInPattern" : "Color List",
+          "type" : "text",
+          "subType" : "choice",
+          "nonChangeable" : true,
+          "choices" : {
+            "0" : "Devilish", 
+            "1" : "Minty", 
+            "2" : "Fire", 
+            "3" : "Ocean", 
+            "4" : "Cruise", 
+            "5" : "Slow red", 
+            "6" : "Flamey purple", 
+            "7" : "Rave bow", 
+            "8" : "Glitter", 
+            "9" : "White blink"
+          }
+        },
+        "propigationList" : {
+          "descriptionInPattern" : "Propigation style",
+          "type" : "text",
+          "subType" : "choice",
+          "nonChangeable" : true,
+          "choices" : {
+            "0" : "Slow",
+            "1" : "Bloom",
+            "2" : "Sync",
+            "3" : "Reverse",
+            "4" : "In Order"
+          }
+        },
+        "flash" : {
+          "descriptionInPattern" : "Do Flash",
+          "type" : "pulse",
+          "subType" : "button"
+        },
+        "autoColor" : {
+          "descriptionInPattern" : "Auto color change",
+          "type" : "pulse",
+          "subType" : "button"
+        },
+        "autoPropigation" : {
+          "descriptionInPattern" : "Auto propigation change",
+          "type" : "pulse",
+          "subType" : "button"
+        }
+      },
+      "protocol" : {
+        "type" : "tympaniLed",
+        "mapping" : {
+          "colorList" : [20, 1],
+          "propigationList" : [20, 2],
+          "flash" : [20, 3],
+          "autoColor" : [20, 4],
+          "autoPropigation" : [20, 5]
+        }
+      }
+    },
+    "buttons" : {
+      "name" : "Poofer Buttons",
+      "moduleType" : "InputOnly",
+      "adaptor" : "flameBus",
+      "inputs" : {
+        "disableR" : {
+          "descriptionInPattern" : "Rosalynd disable btns",
+          "type" : "pulse",
+          "subType" : "onOff",
+          "default" : false
+        },
+        "disableA" : {
+          "descriptionInPattern" : "Alexander disable btns",
+          "type" : "pulse",
+          "subType" : "onOff",
+          "default" : false
+        }
+      },
+      "protocol" : {
+        "type" : "flgRelay",
+        "resendDataInterval" : 400,
+        "ignoreSafeMode" : true,
+        "mapping" : {
+          "disableA" : [4, 7],
+          "disableR" : [2, 7]
+        }
+      }
+    }
+  }
+}

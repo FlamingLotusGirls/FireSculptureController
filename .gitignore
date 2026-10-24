@@ -3,3 +3,8 @@ profile.py
 results.s
 output.txt
 __pycache__/*
+.venv*/
+.deps-py2/
+.pytest_cache/
+.mypy_cache/
+artifacts/
