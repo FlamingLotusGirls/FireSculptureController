@@ -1,3 +1,7 @@
+# HeartBeat._compute_heart_values() is stubbed to return [0.0], keeping its LEDs off.
+# Its controls and renderer are preserved for a future ECG beat source.
+# SciPy and NumPy are no longer required.
+
 import json
 import logging
 
