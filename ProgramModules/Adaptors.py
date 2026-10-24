@@ -1,10 +1,14 @@
 ''' Adaptors specify the interface to the hardware such as a serial bus, ethernet, or a dummy interface. They 
 take the params needed to open the connection, send the already processed data over the connection,
 (eventually) recieve data, and make sure it stays connected. '''
+import logging
 import serial
-import utils
+from . import utils
 
 import ProgramModules.sharedObjects as app
+
+logger = logging.getLogger(__name__)
+
 
 class SerialAdaptor():
 	def __init__ (self, configData):
@@ -14,7 +18,7 @@ class SerialAdaptor():
 
 	def transmitData(self, data):
 		success = True
-		print data
+		logger.debug('Sending serial data: %r', data)
 		try:
 			self.connection.write(data)
 		except:
@@ -36,7 +40,7 @@ class SerialAdaptor():
 				app.messenger.putMessage('log', '%s connected on %s at baudrate %s' %(self.configData['adaptorId'], self.configData['ports'][portIndex], self.configData['baudrate']))
 			except Exception as e:
 				app.messenger.putMessage('log', '%s failed to connect on %s at baudrate %s' %(self.configData['adaptorId'], self.configData['ports'][portIndex], self.configData['baudrate']))
-				app.messenger.putMessage('log', e.message)
+				app.messenger.putMessage('log', str(e))
 				portIndex += 1
 				
 	def updateSerialConnection(self, data):

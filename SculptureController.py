@@ -4,6 +4,7 @@ import logging
 import os
 import time
 from copy import deepcopy
+from io import open
 
 from ProgramModules.DataChannelManager import DataChannelManager
 from ProgramModules.InputManager import InputManager
@@ -30,11 +31,13 @@ class SculptureController():
 				self.availableGlobalInputs.append(inputType)
 		for definitionFileName in os.listdir(definitionFileDirectory):
 			try:
-				definition = json.load(open("%s/%s" %(definitionFileDirectory, definitionFileName)))
+				with open("%s/%s" %(definitionFileDirectory, definitionFileName), encoding="utf-8") as definitionFile:
+					definition = json.load(definitionFile)
 				self.sculptureDefinitions[definition['sculptureId']] = definition
 			except:
 				pass
-		self.globalConfig = json.load(open(configFileName))
+		with open(configFileName, encoding="utf-8") as configFile:
+			self.globalConfig = json.load(configFile)
 		self.availableInputs = {}
 		self.methodList = [m[0] for m in inspect.getmembers(self, predicate=inspect.ismethod)]
 		self.doReset()
@@ -95,7 +98,7 @@ class SculptureController():
 			data = {'sculptures' : {}}
 			for sculptureId in self.sculptureDefinitions:
 				data['sculptures'][sculptureId] = self.sculptureDefinitions[sculptureId]
-		data['globalInputs'] = self.globalInputs.keys()
+		data['globalInputs'] = list(self.globalInputs.keys())
 		data['availableGlobalInputs'] = self.availableGlobalInputs
 		return data
 

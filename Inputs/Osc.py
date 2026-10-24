@@ -1,4 +1,4 @@
-from InputBase import InputBase
+from .InputBase import InputBase
 from threading import Thread, Event
 from ProgramModules import utils
 

@@ -81,7 +81,7 @@ class Chase(PatternBase):
 		if self.inputs.reverse:
 			col = self.gridSize[1] - (col + 1)
 		if self.sequenceTriggered:
-			spacing = self.gridSize[1] / self.inputs.numberPulses
+			spacing = self.gridSize[1] // self.inputs.numberPulses
 			intervalCount = 0
 			while intervalCount < self.inputs.numberPulses and not result:
 				lowerLimit = self.position + intervalCount * spacing

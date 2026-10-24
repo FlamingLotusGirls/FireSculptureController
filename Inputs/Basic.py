@@ -4,7 +4,7 @@ will be interchangeable
 ''' 
 from ProgramModules.Timers import Timer
 from ProgramModules import utils
-from InputBase import InputBase
+from .InputBase import InputBase
 import json
 import time
 import random
@@ -76,9 +76,9 @@ inputTypes = {
 		'longDescription' : 'Random pulse input',
 		'shortDescription' : 'Random Pulse',
 		'inParams' : [
-			{'type' : 'value', 'description' : 'Rarity', 'default' : 10, 'min' : 2, 'max' : 100},
-			{'type' : 'value', 'description' : 'Min time', 'default' : 200, 'min' : 50, 'max' : 1000},
-			{'type' : 'value', 'description' : 'Max time', 'default' : 800, 'min' : 50, 'max' : 1000},
+			{'type' : 'value', 'subType' : 'int', 'description' : 'Rarity', 'default' : 10, 'min' : 2, 'max' : 100},
+			{'type' : 'value', 'subType' : 'int', 'description' : 'Min time', 'default' : 200, 'min' : 50, 'max' : 1000},
+			{'type' : 'value', 'subType' : 'int', 'description' : 'Max time', 'default' : 800, 'min' : 50, 'max' : 1000},
 		],
 		'outParams' : [{'type' : 'toggle', 'sendMessageOnChange' : True}],
 		'hasOwnClass' : True
@@ -149,10 +149,14 @@ class RandomPulseInput(InputBase):
 		InputBase.stop(self)
 		
 	def doCheck(self):
+		rarity = int(self.inParams[0].getValue())
+		minTime = int(self.inParams[1].getValue())
+		maxTime = int(self.inParams[2].getValue())
 		for i in range(self.numPulses):
-			if random.randint(0, self.inParams[0].getValue()) < 2:
+			if random.randint(0, rarity) < 2:
 				self.outParams[i].setValue(True)
-				self.offTimers[i].changeInterval(random.randint(min(self.inParams[1].getValue(), self.inParams[2].getValue()), max(self.inParams[1].getValue(), self.inParams[2].getValue())))
+				duration = random.randint(min(minTime, maxTime), max(minTime, maxTime))
+				self.offTimers[i].changeInterval(duration)
 				self.offTimers[i].refresh()
 				
 	def turnOff(self, index):

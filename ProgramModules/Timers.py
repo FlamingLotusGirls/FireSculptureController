@@ -10,7 +10,7 @@ class Timer():
 			Thread.__init__(self)
 			self.parent = parent
 		def run(self):
-			while not self.parent.stopEvent.isSet():
+			while not self.parent.stopEvent.is_set():
 				self.parent.waitEvent.wait(self.parent.interval / 1000.)
 				self.parent.doFunction()
 		

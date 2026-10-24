@@ -3,7 +3,7 @@ keyboard bindings, timers, OSC messages, etc. There will be several broad types 
 will be interchangeable
 ''' 
 from ProgramModules import utils
-import IoParams
+from . import IoParams
 class InputBase():
 	def __init__(self, configParams, instanceId):
 		self.configParams = utils.multiExtendSettings({'inParams' : [], 'outParams' : [], 'direct' : False}, configParams)

@@ -39,7 +39,7 @@ class InputManager():
 			if not (inputParams[inputChannelId]['type'] == 'multi' or inputChannelId in channelsBoundToMulti):
 				newInputInstanceId = self.createNewInput(inputParams[inputChannelId].copy())
 				if 'outParamIndex' in inputParams[inputChannelId].keys():
-					outParamIndex = inputParams[inputChannelId][outParamIndex]
+					outParamIndex = inputParams[inputChannelId]['outParamIndex']
 				else:
 					outParamIndex = 0
 				inputDict[inputChannelId] = {'inputObj' : self.inputInstances[newInputInstanceId], 'outParamIndex' : outParamIndex}

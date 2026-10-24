@@ -1,10 +1,10 @@
 from ProgramModules import utils
 
-from InputBase import InputBase
-from Basic import TimerPulseInput, BasicMultiInput, RandomPulseInput, RandomPulseMultiInput
-from Osc import OscMultiInput
+from .InputBase import InputBase
+from .Basic import TimerPulseInput, BasicMultiInput, RandomPulseInput, RandomPulseMultiInput
+from .Osc import OscMultiInput
 
-import Osc, Basic
+from . import Osc, Basic
 inputTypes = utils.multiExtendSettings(Basic.inputTypes, Osc.inputTypes)
 availableInputTypes = {}
 for key in inputTypes.keys():

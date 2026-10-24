@@ -4,7 +4,6 @@ stuff that does things on sculptures.
 from copy import deepcopy
 import json
 import logging
-import traceback
 
 from ProgramModules.Timers import Timer
 import ProgramModules.sharedObjects as app
@@ -72,13 +71,7 @@ class GridPatternModule(SculptureModuleBase):
 		return data
 
 	def addPattern(self, patternTypeId): # make a pattern live and select all rows by default
-		try:
-			newInstanceId = '%sPattern%s' % (self.moduleConfig['moduleId'],
-							 self.nextPatternInstanceId)
-		except StandardError:
-			traceback.print_exc()
-		finally:
-			pass
+		newInstanceId = '%sPattern%s' % (self.moduleConfig['moduleId'], self.nextPatternInstanceId)
 		self.patterns[newInstanceId] = self.availablePatternClasses[patternTypeId](self.gridSize, newInstanceId)
 		self.patternRowSettings[newInstanceId] = [True for i in range(self.gridSize[0])]
 		self.patterns[newInstanceId].setUpdateFunction(self.doUpdates)

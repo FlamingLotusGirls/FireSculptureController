@@ -69,5 +69,5 @@ class Messenger():
 	def getCurrentStateData(self):
 		data = {}
 		for channelId in self.channels:
-			data[channelId] = self.channels[channelId]['bindings'].keys()
+			data[channelId] = list(self.channels[channelId]['bindings'].keys())
 		return data

@@ -13,6 +13,7 @@ import ProgramModules.sharedObjects as app
 from SculptureController import SculptureController
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 flaskApp = Flask(__name__,  static_folder='jsGui', static_url_path='/jsGui')
 sculpture = SculptureController()
@@ -37,7 +38,7 @@ class ServerSentEvent(object):
 		if not self.data:
 			return ""
 		lines = ["%s: %s" % (v, k)
-					 for k, v in self.desc_map.iteritems() if k]
+					 for k, v in self.desc_map.items() if k]
 
 		return "%s\n\n" % "\n".join(lines)
 
@@ -104,8 +105,8 @@ if __name__ == '__main__':
 	flaskApp.debug = True
 	server = WSGIServer(("", args.port), flaskApp)
 	try:
-		print 'starting server on localhost:%s' % args.port
+		logger.info('Starting server on localhost:%s', args.port)
 		server.serve_forever()
-	except Exception, err:
+	except Exception:
 		sculpture.doReset()
-		print err
+		logger.exception('Web server failed')

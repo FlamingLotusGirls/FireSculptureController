@@ -85,7 +85,21 @@ Delete [Inputs/Audio.py](Inputs/Audio.py). Then edit these places:
 
 The GUI has no audio-specific code, so `jsGui/` is untouched.
 
-**2. Python 3 portability changes.** Apply to the active application, excluding `py2/`:
+**2. Python 3 portability changes — completed 2026-10-24.**
+
+Converted syntax, package-relative imports, JSON key views, integer division, and exception
+handling; added UTF-8 context-managed config reads and fixed the explicit output-index key.
+Corrected random-pulse integer bounds and GUI numeric text-list bounds before constraining
+values. Preserved tab indentation and the original `py2/` files.
+
+Verification: the active application compiles on Python 3.11 and 3.13. Controller import,
+configuration loading, and state JSON passed on 3.13. Numeric-input and random-pulse
+behavior passed on both versions with manual timers. All 59 serial scenarios still match
+the saved baseline when the active application runs under Python 2.7; all 75 snapshot
+hashes match. Full Python 3 GUI/serial operation awaits the later dependency, server, and
+bytes steps. No new dedicated test files were added for the two reproduced portability bugs.
+
+Original checklist (active application only, excluding `py2/`):
 - `print` statement → `logger` calls (`Adaptors.py:17` is a per-frame debug print;
   `flaskServer.py:108,112` are startup/error messages). `except X, e` → `except X as e`.
 - Implicit relative imports → package-relative imports. About 15 sites:

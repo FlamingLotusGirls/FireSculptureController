@@ -26,20 +26,18 @@ class IoParamBase():
 
 
 class ValueParam(IoParamBase):
-	def __init__(self, *args):
+	def __init__(self, params, *args):
 		self.defaultParams = {'description' : '', 'subType' : '', 'default' : 0, 'sendMessageOnChange' : False,  'min' : 0, 'max' : 100}
-		IoParamBase.__init__(self, *args)
-		if not self.params['min'] == False:
-			try:
-				int(self.params['min'])
-			except:
-				self.params['min'] = 0
-		if not self.params['max'] == False:
-			try:
-				int(self.params['max'])
-			except:
-				self.params['max'] = 100
-		self.value = self.constrain(self.params['default'])
+		params = utils.extendSettings(self.defaultParams, params)
+		numberType = int if params['subType'] == 'int' else float
+		# GUI text-list bounds must be numeric before the base class constrains the default.
+		for bound in ('min', 'max'):
+			if params[bound] is not False:
+				try:
+					params[bound] = numberType(params[bound])
+				except (TypeError, ValueError, OverflowError):
+					params[bound] = self.defaultParams[bound]
+		IoParamBase.__init__(self, params, *args)
 		
 	def setValue(self, newValue):
 		newValue = self.constrain(newValue)
@@ -56,10 +54,10 @@ class ValueParam(IoParamBase):
 				value = float(value)
 		except:
 			value = 0
-		if not (self.params['min'] == False):
+		if self.params['min'] is not False:
 			if value < self.params['min']:
 				value = self.params['min']
-		if not (self.params['max'] == False):
+		if self.params['max'] is not False:
 			if value > self.params['max']:
 				value = self.params['max']
 		return value

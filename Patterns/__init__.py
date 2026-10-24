@@ -1,3 +1,3 @@
-from PatternBase import *
-from Poof import *
-from LED import *
+from .PatternBase import *
+from .Poof import *
+from .LED import *

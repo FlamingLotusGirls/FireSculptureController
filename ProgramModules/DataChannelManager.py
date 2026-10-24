@@ -3,8 +3,7 @@ One instance of this in the program seems to make more sense than one instance p
 due to adaptors needing to serve multiple data channels in some cases
 '''
 from threading import Thread, Event
-import Protocols
-import Adaptors
+from . import Protocols, Adaptors
 
 
 class DataChannelManager():
@@ -16,7 +15,7 @@ class DataChannelManager():
 			self.stopEvent = Event()
 		
 		def run(self):
-			while not self.stopEvent.isSet():
+			while not self.stopEvent.is_set():
 				if not self.data == '':
 					self.adaptor.transmitData(self.data)
 					self.data = ''

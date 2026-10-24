@@ -160,7 +160,7 @@ class HeartBeat(PatternBase):
 				'basicInputType' : 'int value',
 				'min' : [1, 1],
 				'max' : [self.col_count - 1, 100],
-				'default' : [self.col_count / 2, 70],
+				'default' : [self.col_count // 2, 70],
 				'description' : ['heart position',
 						 'maximum brightness',
 					 ],
