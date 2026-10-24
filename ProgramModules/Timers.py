@@ -6,7 +6,7 @@ Changing the interval affects the next wait, without restarting the current wait
 """
 from __future__ import annotations
 from typing import ClassVar
-from .Types import Callback, CallbackArgs
+from .Types import Callback
 
 from threading import Event, Lock, Thread, current_thread
 
@@ -32,7 +32,7 @@ class Timer:
 					Timer.activeTimers.discard(self.parent)
 
 	def __init__(self, repeating: bool, interval: float, function: Callback,
-		args: CallbackArgs = False, stopWhenDone: bool = False) -> None:
+		args = False, stopWhenDone: bool = False) -> None:
 		self.repeating = repeating
 		self.interval = interval
 		self.function = function

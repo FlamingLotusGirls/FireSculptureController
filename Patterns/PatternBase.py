@@ -1,8 +1,7 @@
 
 from __future__ import annotations
 from collections.abc import Callable
-from typing import Any, TYPE_CHECKING, cast
-from ProgramModules.Types import InputConfig, StateData
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
 	from ProgramModules.InputManager import InputCollection
@@ -11,7 +10,7 @@ import ProgramModules.sharedObjects as app
 
 
 class PatternBase():
-	inputParams: dict[str, InputConfig]
+	inputParams: dict
 
 	def __init__(self, gridSize: list[int], instanceId: str) -> None:
 		self.gridSize = gridSize
@@ -26,7 +25,7 @@ class PatternBase():
 		else:
 			self.inputs = app.inputManager.buildInputCollection(self, self.inputParams)
 
-	def reassignInput(self, *args: Any) -> None:
+	def reassignInput(self, *args) -> None:
 		self.inputs.reassignInput(*args)
 
 
@@ -36,7 +35,7 @@ class PatternBase():
 		self.inputs = cast('InputCollection', False)
 
 
-	def getCurrentStateData(self) -> StateData:
+	def getCurrentStateData(self):
 		return({'name' : self.patternName, 'inputs' : self.inputs.getCurrentStateData()})
 	
 

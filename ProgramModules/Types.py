@@ -2,8 +2,8 @@
 
 These are annotations, not validators: configuration files and runtime values stay as-is.
 """
-from collections.abc import Callable, Iterable, Sequence
-from typing import Any, Literal, NotRequired, TypeAlias, TypedDict
+from collections.abc import Callable, Iterable
+from typing import NotRequired, TypeAlias, TypedDict
 
 RGB: TypeAlias = tuple[int, int, int]
 GridAddress: TypeAlias = list[int] | tuple[int, ...]
@@ -14,14 +14,6 @@ AddressMapping: TypeAlias = dict[str, HardwareAddress] | list[HardwareAddress] |
 OutputValue: TypeAlias = bool | int | float | str | RGB
 OutputCommands: TypeAlias = Iterable[tuple[LogicalAddress, OutputValue]]
 Callback: TypeAlias = Callable[..., object]
-CallbackArgs: TypeAlias = Sequence[Any] | Literal[False]
-
-# Input kinds have different parameter keys and scalar/list forms supplied by the GUI.
-InputConfig: TypeAlias = dict[str, Any]
-# GUI snapshots combine configuration, values, and status from different module types.
-StateData: TypeAlias = dict[str, Any]
-# Preserve the legacy [callback, arguments] handle used to remove a safe-mode binding.
-SafeModeBinding: TypeAlias = list[Any]
 
 
 class AdaptorConfig(TypedDict):
@@ -51,7 +43,7 @@ class ModuleConfig(TypedDict):
 	moduleId: NotRequired[str]
 	patternType: NotRequired[str]
 	patterns: NotRequired[list[str]]
-	inputs: NotRequired[dict[str, InputConfig]]
+	inputs: NotRequired[dict]
 
 
 class SculptureConfig(TypedDict):

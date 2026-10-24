@@ -5,8 +5,9 @@ and other objects can either check the channel for messages on their own, or bin
 will be called when a message appears on the channel.
 '''
 from __future__ import annotations
-from typing import Any, TypedDict
-from .Types import Callback, CallbackArgs
+from collections.abc import Sequence
+from typing import Literal, TypedDict
+from .Types import Callback
 
 
 import logging
@@ -17,11 +18,11 @@ logger = logging.getLogger(__name__)
 
 class MessageBinding(TypedDict):
 	function: Callback
-	data: CallbackArgs
+	data: Sequence | Literal[False]
 
 
 class MessageChannel(TypedDict):
-	messages: list[Any]
+	messages: list
 	bindings: dict[int, MessageBinding]
 	queueMessages: bool
 
@@ -33,7 +34,7 @@ class Messenger():
 
 
 	@synchronized
-	def putMessage(self, channelId: str, message: Any) -> None:
+	def putMessage(self, channelId: str, message) -> None:
 		logger.debug('putMessage(%s, %s)', channelId, message)
 		self.checkForChannel(channelId)
 		if self.channels[channelId]['queueMessages']:
@@ -53,7 +54,7 @@ class Messenger():
 
 
 	@synchronized
-	def getMessages(self, channelId: str) -> list[Any]:
+	def getMessages(self, channelId: str):
 		self.checkForChannel(channelId)
 		data = self.channels[channelId]['messages']
 		self.channels[channelId]['messages'] = []
@@ -61,7 +62,7 @@ class Messenger():
 
 
 	@synchronized
-	def addBinding(self, channelId: str, function: Callback, data: CallbackArgs = False) -> int:
+	def addBinding(self, channelId: str, function: Callback, data = False) -> int:
 		self.checkForChannel(channelId)
 		newBindingId = self.nextBindingId
 		binding: MessageBinding = {'function' : function, 'data' : data}

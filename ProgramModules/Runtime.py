@@ -1,7 +1,7 @@
 """Serialize controller work without trapping stopped workers behind its lock."""
 from __future__ import annotations
 from collections.abc import Callable
-from typing import Any, ParamSpec, TypeVar
+from typing import ParamSpec, TypeVar
 
 from functools import wraps
 import logging
@@ -24,7 +24,7 @@ def synchronized(function: Callable[Params, Result]) -> Callable[Params, Result]
 	return locked
 
 
-def runCallback(stopEvent: Event, function: Callable[..., Result], *args: Any) -> Result | None:
+def runCallback(stopEvent: Event, function, *args):
 	# A controller may hold engineLock while stopping this worker. Check cancellation
 	# while waiting, so joining the worker cannot deadlock on that lock.
 	while not stopEvent.is_set():

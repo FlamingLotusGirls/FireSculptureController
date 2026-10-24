@@ -3,8 +3,6 @@ keyboard bindings, timers, OSC messages, etc. There will be several broad types 
 will be interchangeable
 ''' 
 from __future__ import annotations
-from typing import Any
-from ProgramModules.Types import InputConfig
 
 from ProgramModules.Timers import Timer
 from ProgramModules import utils
@@ -13,7 +11,7 @@ import json
 import time
 import random
 
-inputTypes: dict[str, InputConfig] = {
+inputTypes: dict = {
 	'timer pulse' : {
 		'longDescription' : 'Timer pulse input, variable timing',
 		'shortDescription' : 'Timer Pulse',
@@ -97,7 +95,7 @@ inputTypes: dict[str, InputConfig] = {
 
 
 class TimerPulseInput(InputBase):
-	def __init__(self, *args: Any) -> None:
+	def __init__(self, *args) -> None:
 		InputBase.__init__(self, *args)
 		self.timer = Timer(True, self.inParams[0].getValue(), getattr(self, 'sendPulse'))
 
@@ -112,7 +110,7 @@ class TimerPulseInput(InputBase):
 		self.outParams[0].setValue(True)
 
 
-	def setInputValue(self, *args: Any) -> None:
+	def setInputValue(self, *args) -> None:
 		InputBase.setInputValue(self, *args)
 		self.timer.changeInterval(self.inParams[0].getValue())
 		
@@ -121,7 +119,7 @@ class TimerPulseInput(InputBase):
 
 
 class BasicMultiInput(InputBase):
-	def __init__(self, configParams: InputConfig, *args: Any) -> None:
+	def __init__(self, configParams, *args) -> None:
 		configParams = utils.multiExtendSettings({'inParams' : []}, configParams)
 		inParamKeys = [key for key in ['min', 'max', 'default', 'description', 'choices'] if key in configParams]
 		for i in range(configParams['number']):
@@ -139,7 +137,7 @@ class BasicMultiInput(InputBase):
 		InputBase.__init__(self, configParams, *args)
 
 class RandomPulseInput(InputBase):
-	def __init__(self, *args: Any) -> None:
+	def __init__(self, *args) -> None:
 		InputBase.__init__(self, *args)
 		self.checkTimer = Timer(True, 200, self.doCheck)
 		self.numPulses = 1
@@ -167,7 +165,7 @@ class RandomPulseInput(InputBase):
 		self.outParams[index].setValue(False)
 		
 class RandomPulseMultiInput(RandomPulseInput):
-	def __init__(self, params: InputConfig, *args: Any) -> None:
+	def __init__(self, params, *args) -> None:
 		params = utils.multiExtendSettings(inputTypes['random pulse'], inputTypes['randomPulse multi'], params)
 		self.numPulses = params['number']
 		for inputIndex in range(len(params['inParams'])):

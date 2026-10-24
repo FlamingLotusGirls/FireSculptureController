@@ -1,6 +1,4 @@
 from __future__ import annotations
-from typing import Any
-from ProgramModules.Types import InputConfig
 
 from .InputBase import InputBase
 from threading import Event, Thread, current_thread
@@ -8,7 +6,7 @@ from time import time
 from ProgramModules import utils
 from ProgramModules.Runtime import runCallback
 
-inputTypes: dict[str, InputConfig] = {
+inputTypes = {
 	'osc multi' : {
 		'longDescription' : 'OpenSoundControl server', 
 		'shortDescription' : 'OSC server', 
@@ -35,7 +33,7 @@ if 'unavailable' not in inputTypes['osc multi']:
 			super().__init__()
 			self.stopEvent = Event()
 
-		def call_handlers_for_packet(self, data: bytes, client_address: tuple[str, int]) -> list[Any]:
+		def call_handlers_for_packet(self, data: bytes, client_address: tuple[str, int]):
 			try:
 				packet = OscPacket(data)
 			except ParseError:
@@ -45,7 +43,7 @@ if 'unavailable' not in inputTypes['osc multi']:
 				if self.stopEvent.wait(max(0, message.time - time())):
 					break
 				for handler in self.handlers_for_address(message.message.address):
-					result: Any = runCallback(self.stopEvent, handler.invoke, client_address, message.message)
+					result = runCallback(self.stopEvent, handler.invoke, client_address, message.message)
 					if result is not None:
 						results.append(result)
 			return results
@@ -78,7 +76,7 @@ class OscMultiInput(InputBase):
 			if self.shutdownThread is not None:
 				self.shutdownThread.join()
 
-	def __init__(self, params: InputConfig, *args: Any) -> None:
+	def __init__(self, params, *args) -> None:
 		params = utils.extendSettings(inputTypes['osc multi'], params)
 		params['port'] = int(params['port'])
 		self.outputTypes = ['pulse', 'toggle', 'value']
@@ -126,17 +124,17 @@ class OscMultiInput(InputBase):
 		self.server.stop()
 		InputBase.stop(self)
 
-	def doPulseCallback(self, path: str, fixedArgs: list[int], *values: Any) -> None:
+	def doPulseCallback(self, path: str, fixedArgs: list[int], *values) -> None:
 		if values:
 			outputIndex = fixedArgs[0]
 			self.outParams[outputIndex].setValue(values[0] in ['1', 1, 'true', 'True'])
 
-	def doToggleCallback(self, path: str, fixedArgs: list[int], *values: Any) -> None:
+	def doToggleCallback(self, path: str, fixedArgs: list[int], *values) -> None:
 		if values:
 			outputIndex = fixedArgs[0]
 			self.outParams[outputIndex].setValue(values[0])
 
-	def doValueCallback(self, path: str, fixedArgs: list[int], *values: Any) -> None:
+	def doValueCallback(self, path: str, fixedArgs: list[int], *values) -> None:
 		if values:
 			outputIndex = fixedArgs[0]
 			self.outParams[outputIndex].setValue(values[0])

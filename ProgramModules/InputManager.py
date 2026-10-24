@@ -1,9 +1,8 @@
 ''' Builds collections of input objects based on defaults. Manages uses: Inputs
 can be used by multiple things, so this keeps track of who's using what and deletes unused inputs'''
 from __future__ import annotations
-from typing import Any, Literal, TypedDict, cast
+from typing import Literal, TypedDict, cast
 from .Interfaces import Input, InputOwner
-from .Types import InputConfig, StateData
 
 import logging
 
@@ -24,14 +23,14 @@ class InputManager():
 		self.nextInputInstanceId = 1
 		self.inputInstances: dict[int, Input] = {}
 		self.inputInstanceUses: dict[int, list[list[str | Literal[False]]]] = {}
-		self.availableInputTypes: dict[str, dict[str, InputConfig]] = {}
+		self.availableInputTypes: dict = {}
 		for inputType in Inputs.availableInputTypes:
 			self.availableInputTypes[inputType] = {}
 			for subType in Inputs.availableInputTypes[inputType]:
 				if not ('unavailable' in Inputs.inputTypes[' '.join([subType, inputType]).strip()].keys()):
 					self.availableInputTypes[inputType][subType] = Inputs.inputTypes[' '.join([subType, inputType]).strip()]
 
-	def buildInputCollection(self, parentObj: InputOwner, inputParams: dict[str, InputConfig]) -> InputCollection:
+	def buildInputCollection(self, parentObj: InputOwner, inputParams) -> InputCollection:
 		inputDict: dict[str, InputAssignment] = {}
 		channelsBoundToMulti = []
 		for inputChannelId in inputParams: #handle multi channels first
@@ -56,7 +55,7 @@ class InputManager():
 				self.registerAndGetInput(parentObj.getId(), newInputInstanceId, inputChannelId)
 		return InputCollection(parentObj, inputDict, inputParams)
 
-	def createNewInput(self, params: InputConfig) -> int | Literal[False]:
+	def createNewInput(self, params) -> int | Literal[False]:
 		newInputInstanceId = self.nextInputInstanceId
 		self.nextInputInstanceId += 1
 		inputTypeKey = ' '.join([params['subType'], params['type']]).strip()
@@ -69,7 +68,7 @@ class InputManager():
 		else:
 			inputClassName = 'InputBase'
 		# Configured class names are dynamic; the supported classes are checked in Inputs.
-		inputClass: Any = getattr(Inputs, inputClassName)
+		inputClass = getattr(Inputs, inputClassName)
 		self.inputInstances[newInputInstanceId] = inputClass(params, newInputInstanceId)
 		return newInputInstanceId
 
@@ -98,7 +97,7 @@ class InputManager():
 		else:
 			unRegisterInputIfApplies(inputInstanceId)
 
-	def getCurrentStateData(self) -> StateData:
+	def getCurrentStateData(self):
 		currentInputData = {}
 		for inputInstanceId in self.inputInstances:
 			currentInputData[inputInstanceId] = self.inputInstances[inputInstanceId].getCurrentStateData()
@@ -123,7 +122,7 @@ class InputManager():
 
 class InputCollection(object): #a package of all the inputs used by a module or pattern instance
 	def __init__(self, parentObj: InputOwner, inputCollection: dict[str, InputAssignment],
-		inputParams: dict[str, InputConfig]) -> None:
+		inputParams) -> None:
 		self.inputCollection = inputCollection
 		self.inputParams = inputParams
 		self.parentObj: InputOwner | Literal[False] = parentObj
@@ -131,7 +130,7 @@ class InputCollection(object): #a package of all the inputs used by a module or 
 		for inputChannelId in inputParams:
 			self.addMessengerBindingsIfNeeded(inputChannelId)
 
-	def __getattr__(self, inputChannelId: str) -> Any:
+	def __getattr__(self, inputChannelId: str):
 		# A channel resolves to a value or a callable, depending on its runtime assignment.
 		assignment = self.inputCollection[inputChannelId]
 		outputIndex = assignment['outParamIndex']
@@ -140,11 +139,11 @@ class InputCollection(object): #a package of all the inputs used by a module or 
 		else:
 			return assignment['inputObj'].getValue(outputIndex)
 
-	def getInputAssignment(self, inputChannelId: str) -> list[Any]:
+	def getInputAssignment(self, inputChannelId: str):
 		# Keep the GUI's two-element list: input ID followed by one index or a list of indexes.
 		return [self.inputCollection[inputChannelId]['inputObj'].getId(), self.inputCollection[inputChannelId]['outParamIndex']]
 
-	def doCommand(self, args: list[Any]) -> Any:
+	def doCommand(self, args):
 		function = getattr(self.inputCollection[args.pop(0)]['inputObj'], args.pop(0))
 		return function(*args)
 
@@ -176,7 +175,7 @@ class InputCollection(object): #a package of all the inputs used by a module or 
 				app.messenger.removeBinding(bindingIds)
 			del self.messengerBindingIds[inputChannelId]
 
-	def getCurrentStateData(self) -> StateData:
+	def getCurrentStateData(self):
 		data = {}
 		for inputChannelId in self.inputParams:
 			if not('channels' in self.inputParams[inputChannelId].keys()):

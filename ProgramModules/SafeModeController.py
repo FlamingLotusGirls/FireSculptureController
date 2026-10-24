@@ -1,6 +1,6 @@
 """Safe-mode state and callbacks, serialized with command formatting and serial writes."""
 from __future__ import annotations
-from .Types import Callback, CallbackArgs, SafeModeBinding
+from .Types import Callback
 
 import logging
 from threading import RLock
@@ -13,7 +13,7 @@ class SafeModeController:
 	def __init__(self) -> None:
 		self.safeMode = True
 		self.generation = 0
-		self.bindings: list[SafeModeBinding] = []
+		self.bindings: list = []
 		self.lock = RLock()
 
 	def isSet(self) -> bool:
@@ -41,13 +41,13 @@ class SafeModeController:
 				if firstError is not None:
 					raise firstError
 
-	def addBinding(self, function: Callback, args: CallbackArgs = False) -> SafeModeBinding:
+	def addBinding(self, function: Callback, args = False):
 		with self.lock:
-			binding: SafeModeBinding = [function, args]
+			binding = [function, args]
 			self.bindings.append(binding)
 			return binding
 
-	def removeBinding(self, binding: SafeModeBinding | None) -> None:
+	def removeBinding(self, binding) -> None:
 		with self.lock:
 			if binding in self.bindings:
 				self.bindings.remove(binding)

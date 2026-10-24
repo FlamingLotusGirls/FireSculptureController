@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 from serial.serialutil import SerialBase
-from .Types import AdaptorConfig, AdaptorUpdate, StateData
+from .Types import AdaptorConfig, AdaptorUpdate
 
 import logging
 from threading import RLock
@@ -83,7 +83,7 @@ class SerialAdaptor:
 			self.stopped = True
 			self._closeConnection()
 
-	def getCurrentStateData(self) -> StateData:
+	def getCurrentStateData(self):
 		with self.lock:
 			data = dict(self.configData)
 			data['connected'] = self.connection is not None and self.connection.is_open

@@ -3,16 +3,15 @@ keyboard bindings, timers, OSC messages, etc. There will be several broad types 
 will be interchangeable
 ''' 
 from __future__ import annotations
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from ProgramModules.Interfaces import InputParameter
-from ProgramModules.Types import InputConfig, StateData
 
 from ProgramModules import utils
 from . import IoParams
 class InputBase():
-	def __init__(self, configParams: InputConfig, instanceId: int) -> None:
+	def __init__(self, configParams, instanceId: int) -> None:
 		self.stopped = False
-		self.configParams: InputConfig = utils.multiExtendSettings({'inParams' : [], 'outParams' : [], 'direct' : False}, configParams)
+		self.configParams = utils.multiExtendSettings({'inParams' : [], 'outParams' : [], 'direct' : False}, configParams)
 		possibleInParamKeys = ['min', 'max', 'default', 'description', 'sendMessageOnChange', 'choices']
 		inParamKeys = [key for key in possibleInParamKeys if key in self.configParams]
 		if inParamKeys:
@@ -35,17 +34,17 @@ class InputBase():
 				self.outParams.append(self.makeIoParam(self.configParams['outParams'][paramIndex], paramIndex))
 
 
-	def setInputValue(self, value: Any, settingIndex: int = 0) -> None:
+	def setInputValue(self, value, settingIndex: int = 0) -> None:
 		self.inParams[settingIndex].setValue(value)
 		self.updateOutputValues()
 
 
-	def getValue(self, outputIndex: int = 0) -> Any:
+	def getValue(self, outputIndex: int = 0):
 		self.updateOutputValues()
 		return self.outParams[outputIndex].getValue()
 
 		
-	def makeIoParam(self, params: InputConfig, paramIndex: int = 0) -> InputParameter:
+	def makeIoParam(self, params, paramIndex: int = 0) -> InputParameter:
 		# Parameter classes are selected by configuration; their interface is checked below.
 		paramClass = getattr(IoParams, utils.makeCamelCase([params['type'], 'param'], True))
 		return paramClass(params, self.instanceId, paramIndex)
@@ -58,7 +57,7 @@ class InputBase():
 		pass
 
 
-	def getCurrentStateData(self) -> StateData:
+	def getCurrentStateData(self):
 		self.updateOutputValues()
 		data = self.configParams.copy()
 		data['inParams'] = []

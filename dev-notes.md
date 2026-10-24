@@ -10,9 +10,9 @@ changes and leave `py2/` untouched.
 `ProgramModules/Types.py` describes the existing sculpture, module, protocol, and
 adaptor JSON using `TypedDict`. Mappings retain their dictionary, one-dimensional,
 or two-dimensional list shapes; runtime-added IDs use `NotRequired`. These declarations
-do not parse, validate, or rewrite configuration. Input parameter dictionaries and
-mixed GUI snapshots use named dictionary aliases because their keys and values vary
-with the selected input/module.
+do not parse, validate, or rewrite configuration. Dynamic input parameters and mixed
+GUI snapshots are left unannotated. A few schema fields and attributes name only their
+known container (`dict`, `list`, or `Sequence`); their contents remain untyped.
 
 `ProgramModules/Interfaces.py` defines structural `typing.Protocol` interfaces for
 adaptors, protocol encoders, inputs/parameters, patterns, and sculpture modules. Concrete
@@ -22,10 +22,12 @@ the required methods and types. When adding an implementation, add it to the mat
 declaration as well as its existing configuration/registration path, then run
 `python -m mypy`. The declarations are not runtime registries or fallback implementations.
 
-`Any` remains explicit where behavior is selected at runtime: input factories, command
-dispatch, `InputCollection.__getattr__` (a value or callable), forwarded argument lists,
-and heterogeneous input/message data. The recursive settings merge also accepts arbitrary
-nested values. The synchronization decorator preserves argument and result types with
+Omit annotations where the type would otherwise be `Any`, including input factories,
+command dispatch, `InputCollection.__getattr__` (a value or callable), forwarded argument
+lists, and heterogeneous input/message data. Do not hide `Any` behind shared aliases.
+The recursive settings merge also remains unannotated. Mypy allows missing annotations;
+it checks annotated and partially annotated functions, but skips fully unannotated
+function bodies. The synchronization decorator preserves argument and result types with
 `ParamSpec`, so decorating a method does not erase its signature from the type checker.
 
 `cast` records an existing relationship, such as the mapping shape selected by a protocol

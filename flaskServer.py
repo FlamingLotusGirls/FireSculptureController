@@ -3,7 +3,7 @@
 from __future__ import annotations
 from collections.abc import Iterator, Sequence
 from types import FrameType
-from typing import Any, cast
+from typing import cast
 from werkzeug.serving import BaseWSGIServer
 
 import argparse
@@ -50,7 +50,7 @@ def bindOutputStreams() -> None:
 
 
 @synchronized
-def executeCommand(command: list[Any]) -> Any:
+def executeCommand(command):
 	if stopping.is_set():
 		raise ControllerStopped('Controller is shutting down')
 	result = sculpture.doCommand(command)

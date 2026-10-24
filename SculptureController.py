@@ -1,8 +1,8 @@
 from __future__ import annotations
 from collections.abc import Callable
-from typing import Any, Literal, cast
+from typing import Literal, cast
 from ProgramModules.Interfaces import Input, SculptureModule
-from ProgramModules.Types import InputConfig, ModuleConfig, SculptureConfig, StateData
+from ProgramModules.Types import ModuleConfig, SculptureConfig
 
 import inspect
 import json
@@ -47,7 +47,7 @@ class SculptureController:
 			self.sculptureDefinitions[definition['sculptureId']] = definition
 		with (root / 'config.json').open(encoding='utf-8') as source:
 			self.globalConfig = json.load(source)
-		self.availableInputs: dict[str, InputConfig] = {}
+		self.availableInputs: dict = {}
 		self.methodList = [name for name, method in inspect.getmembers(self, predicate=inspect.ismethod)
 			if not name.startswith('_')]
 		self.doReset()
@@ -126,12 +126,12 @@ class SculptureController:
 			raise
 
 	@synchronized
-	def setInputValue(self, inputInstanceId: int, *args: Any) -> None:
+	def setInputValue(self, inputInstanceId: int, *args) -> None:
 		# Input and serial commands require a loaded sculpture; keep that existing contract.
 		cast(InputManager, self.inputManager).getInputObj(inputInstanceId).setInputValue(*args)
 
 	@synchronized
-	def doCommand(self, command: list[Any]) -> Any:
+	def doCommand(self, command):
 		if self.stopped:
 			raise ControllerStopped('Controller has stopped')
 		if not isinstance(command, list) or not command or not isinstance(command[0], str):
@@ -140,15 +140,15 @@ class SculptureController:
 		logger.debug('doCommand(%s)', command)
 		functionName = command[0]
 		if functionName in self.methodList:
-			# Method names and argument lists come from GUI commands; dispatch remains Any.
+			# Method names and argument lists come from GUI commands.
 			return getattr(self, functionName)(*command[1:])
 		moduleId = command.pop(1)
 		return self.sculptureModules[moduleId].doCommand(command)
 
 	@synchronized
-	def getCurrentStateData(self) -> StateData:
+	def getCurrentStateData(self):
 		if self.sculptureConfig:
-			data: StateData = cast(StateData, deepcopy(self.sculptureConfig))
+			data = deepcopy(self.sculptureConfig)
 			data['safeMode'] = app.safeMode.isSet()
 			for moduleId, module in self.sculptureModules.items():
 				data['modules'][moduleId].update(module.getCurrentStateData())
@@ -163,7 +163,7 @@ class SculptureController:
 		return deepcopy(data)
 
 	@synchronized
-	def addGlobalInput(self, inputParams: InputConfig) -> None:
+	def addGlobalInput(self, inputParams) -> None:
 		manager = cast(InputManager, self.inputManager)
 		newInputId = manager.createNewInput(inputParams)
 		self.globalInputs[newInputId] = manager.registerAndGetInput('main', newInputId)
@@ -178,5 +178,5 @@ class SculptureController:
 		app.safeMode.set(value)
 
 	@synchronized
-	def updateSerialConnection(self, *args: Any) -> bool:
+	def updateSerialConnection(self, *args) -> bool:
 		return cast(DataChannelManager, self.dataChannelManager).updateSerialConnection(*args)

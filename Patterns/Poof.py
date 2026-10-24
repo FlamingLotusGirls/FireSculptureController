@@ -1,11 +1,10 @@
 from __future__ import annotations
-from typing import Any
 
 from Patterns.PatternBase import PatternBase
 from ProgramModules.Timers import Timer
 import json
 class Chase(PatternBase):
-	def __init__(self, *args: Any) -> None:
+	def __init__(self, *args) -> None:
 		self.inputParams = {
 			'multiVal' : {
 				'descriptionInPattern' : 'Parameters',
@@ -59,7 +58,7 @@ class Chase(PatternBase):
 		self.position = 0
 		self.sequenceTriggered = True
 
-	def triggerStep(self, *args: Any) -> None:
+	def triggerStep(self, *args) -> None:
 		if self.inputs.triggerStep and self.sequenceTriggered:
 			self.requestUpdate()
 			self.position += self.inputs.stepping
@@ -73,7 +72,7 @@ class Chase(PatternBase):
 					self.requestUpdate()
 
 		
-	def triggerSequence(self, *args: Any) -> None:
+	def triggerSequence(self, *args) -> None:
 		if self.inputs.triggerSequence:
 			self.inputs.doCommand(['triggerStep', 'refresh'])
 			self.position = 0
@@ -100,7 +99,7 @@ class Chase(PatternBase):
 		return result
 		
 class AllPoof(PatternBase):
-	def __init__(self, *args: Any) -> None:
+	def __init__(self, *args) -> None:
 		self.inputParams = {
 			'poofButton' : {
 				'descriptionInPattern' : 'Poof!',
@@ -122,7 +121,7 @@ class AllPoof(PatternBase):
 		self.timer = Timer(False, self.inputs.stayOnTime, self.turnOff)
 		self.poofState = False
 
-	def poofButton(self, *args: Any) -> None:
+	def poofButton(self, *args) -> None:
 		if self.inputs.poofButton:
 			self.timer.changeInterval(self.inputs.stayOnTime)
 			self.timer.refresh()
@@ -141,7 +140,7 @@ class AllPoof(PatternBase):
 		PatternBase.stop(self)
 		
 class RandomPoof(PatternBase):
-	def __init__(self, gridSize: list[int], *args: Any) -> None:
+	def __init__(self, gridSize: list[int], *args) -> None:
 		self.inputParams = {
 			'randomGenerator' : {
 				'descriptionInPattern' : 'Random generator',

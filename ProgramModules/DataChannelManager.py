@@ -5,10 +5,7 @@ recent state, so a failed OFF cannot be forgotten and old pulses are not replaye
 """
 from __future__ import annotations
 from .Interfaces import Adaptor, ProtocolEncoder
-from .Types import (
-	AddressKey, AdaptorConfig, AdaptorUpdate, OutputCommands, SafeModeBinding,
-	SculptureConfig, StateData,
-)
+from .Types import AddressKey, AdaptorConfig, AdaptorUpdate, OutputCommands, SculptureConfig
 from typing import cast
 
 import logging
@@ -234,7 +231,7 @@ class AdaptorThread(Thread):
 			self._requestResync('Serial configuration changed; restoring current state', reconnect=not connected)
 			return connected
 
-	def getCurrentStateData(self) -> StateData:
+	def getCurrentStateData(self):
 		with self.lock:
 			data = self.adaptor.getCurrentStateData()
 			data['deliveryPending'] = not self.idleEvent.is_set()
@@ -248,7 +245,7 @@ class DataChannelManager:
 		self.dataChannels: dict[str, ProtocolEncoder] = {}
 		self.moduleAdaptors: dict[str, AdaptorThread] = {}
 		self.stopped = False
-		self.safeModeBinding: SafeModeBinding | None = None
+		self.safeModeBinding = None
 		self.shutdownComplete = False
 		try:
 			for adaptorId, settings in sculptureConfigData['adaptors'].items():
@@ -321,5 +318,5 @@ class DataChannelManager:
 	def updateSerialConnection(self, adaptorId: str, data: AdaptorUpdate) -> bool:
 		return self.adaptors[adaptorId].updateSerialConnection(data)
 
-	def getCurrentStateData(self) -> dict[str, StateData]:
+	def getCurrentStateData(self):
 		return {name: writer.getCurrentStateData() for name, writer in self.adaptors.items()}

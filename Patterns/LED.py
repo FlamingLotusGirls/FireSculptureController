@@ -3,7 +3,7 @@
 # SciPy and NumPy are no longer required.
 
 from __future__ import annotations
-from typing import Any, cast
+from typing import cast
 from ProgramModules.Types import RGB
 
 import json
@@ -142,7 +142,7 @@ class HeartBeat(PatternBase):
 	# (the further away, the darker).
 	DISTANCE_DIFF = 0.05
 
-	def __init__(self, *args: Any) -> None:
+	def __init__(self, *args) -> None:
 		# Passed in via SculptureModuleBase.addPattern().
 		grid_size = args[0]
 		self.row_count = grid_size[0]
@@ -339,7 +339,7 @@ class HeartBeat(PatternBase):
 		cast(LED, self._heart_led).brightness = brightness
 		self._update_non_heart_leds()
 
-	def triggerStep(self, *args: Any) -> None:
+	def triggerStep(self, *args) -> None:
 		"""Run one step in the pattern.
 
 		If input values have been updated, also update the local values
@@ -366,7 +366,7 @@ class HeartBeat(PatternBase):
 			self._update_leds()
 			self.requestUpdate()
 
-	def triggerSequence(self, *args: Any) -> None:
+	def triggerSequence(self, *args) -> None:
 		if self.inputs.triggerSequence:
 			logging.info('HeartBeat.triggerSequence() called.')
 			self.inputs.doCommand(['triggerStep', 'refresh'])
@@ -403,7 +403,7 @@ class FromImage(PatternBase):
 		"2": Image("image 3", "path/to/image3"),
 		}
 
-	def __init__(self, *args: Any) -> None:
+	def __init__(self, *args) -> None:
 		# A dictionary of image IDs (as defined in 'supported_images'
 		# above) to image names shown in the UI.
 		choices = {}
@@ -433,7 +433,7 @@ class FromImage(PatternBase):
 		self.patternName = 'From Image'
 		self._current_image_id = "0"
 
-	def updateButtonPressed(self, *args: Any) -> None:
+	def updateButtonPressed(self, *args) -> None:
 		"""Change behavor when the user pressed the update button."""
 		# Through the magic of the framework, user-provided input data
 		# can be found in self.inputs.

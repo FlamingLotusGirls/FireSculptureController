@@ -345,12 +345,15 @@ Original checklist:
 
 **8. Type hints and mypy — completed 2026-10-24.**
 
-Annotated every function in the active application and added `Types.py` for existing JSON
+Added useful annotations to the active application and `Types.py` for existing JSON
 schemas/value types and `Interfaces.py` for structural contracts. Supported adaptor,
 protocol, input, pattern, and module classes have static conformance declarations.
-Mypy retains signatures through the synchronization decorator and rejects unannotated
-definitions in the application packages and entry points. Dynamic factories, command
-dispatch, input lookup/values, and heterogeneous settings remain explicitly documented.
+Mypy retains signatures through the synchronization decorator. Following review, removed
+explicit `Any` annotations and the four aliases containing it. Dynamic parameters and
+results remain unannotated; a few schema fields and attributes describe only their known
+container type. Mypy permits missing annotations and skips fully unannotated function
+bodies. Dynamic factories, command dispatch, input lookup/values, and heterogeneous
+settings remain documented.
 
 Kept tab indentation, runtime JSON shapes, placeholders, dispatch, and wire behavior.
 Small local bindings and `cast` calls express relationships that the old code already
@@ -361,15 +364,15 @@ base client type while returning the same concrete client.
 Verification: mypy passes for all 26 active source files with no blanket suppressions.
 All 46 tests pass with warnings as errors and no skips on Python 3.11.15 and 3.13.17,
 including the 59 application scenarios, 92 protocol cases, and preserved-file checks.
-The function audit finds no missing annotations. Deliberately invalid examples confirmed
-that mypy rejects a missing serial write method, an incomplete input interface, a
-text-returning protocol, and an integer serial-port name. Pi/hardware checks remain
+Deliberately invalid examples confirmed that mypy rejects a missing serial write method,
+an incomplete input interface, a text-returning protocol, and an integer serial-port name.
+Pi/hardware checks remain
 separate; the Serpent LED wire protocol and HeartBeat waveform remain stubbed.
 
-Original checklist:
+Checklist, updated after annotation review:
 A separate reviewable step after the port, so the type changes
 are not tangled with the porting diff. Keep annotations readable.
-- Annotate arguments and returns on essentially all functions and methods in
+- Annotate arguments and returns where useful types are known in
   `ProgramModules/`, `Inputs/`, `Patterns/`, `SculptureController.py` and `flaskServer.py`.
 - Model the JSON schemas with `TypedDict` (sculpture definition, adaptor config, protocol
   config with its `mapping`, module config). The runtime JSON stays as-is, so no behaviour
@@ -379,10 +382,10 @@ are not tangled with the porting diff. Keep annotations readable.
   method fails the type check.
 - Honest limits: `InputCollection.__getattr__` (returns a value *or* a bound method
   depending on the channel), the `getattr(Inputs, className)` factories and the
-  `getattr(self, functionName)` command dispatch stay `Any`, each with a one-line comment.
-- mypy runs non-strict at first. `disallow_untyped_defs = true` is turned on per package as
-  each is finished. mypy also flags undefined names, which would have caught the
-  `outParamIndex` and `outputTypes` bugs found during planning.
+  `getattr(self, functionName)` command dispatch stay unannotated, with comments explaining
+  those dynamic boundaries.
+- Run mypy non-strict with missing annotations allowed; do not add `Any` to satisfy a
+  coverage rule. Mypy still checks the concrete types and structural interfaces.
 - Hints are annotation-only, with no runtime effect.
 
 ## Deferred future work — outside today's scope

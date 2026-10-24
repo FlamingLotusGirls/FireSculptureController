@@ -112,10 +112,10 @@ Run the type checker separately:
 python -m mypy
 ```
 
-The configuration targets Python 3.11 and the 26 active source files, with
-`disallow_untyped_defs` enabled for the application packages and entry points. There
-are no blanket error suppressions. Configuration schemas and structural interfaces are
-in `ProgramModules/Types.py` and `ProgramModules/Interfaces.py`; supported implementations
+The configuration targets Python 3.11 and the 26 active source files. Missing annotations
+are allowed where no useful type is known; fully unannotated function bodies are not
+checked. There are no blanket error suppressions. Configuration schemas and structural
+interfaces are in `ProgramModules/Types.py` and `ProgramModules/Interfaces.py`; supported implementations
 are checked through `TYPE_CHECKING` declarations. See
 [typing boundaries](dev-notes.md#typing-and-extension-interfaces) for deliberate dynamic
 values and the steps for adding an implementation. Mypy does not validate JSON at runtime.

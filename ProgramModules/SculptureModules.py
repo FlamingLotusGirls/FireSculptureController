@@ -3,12 +3,9 @@ stuff that does things on sculptures.
 '''
 from __future__ import annotations
 from collections.abc import Callable
-from typing import Any, Literal, TYPE_CHECKING, cast
+from typing import Literal, TYPE_CHECKING, cast
 from .Interfaces import Pattern
-from .Types import (
-	GridAddress, HardwareAddress, InputConfig, ModuleConfig, OutputValue,
-	SafeModeBinding, StateData,
-)
+from .Types import GridAddress, HardwareAddress, ModuleConfig, OutputValue
 
 from copy import deepcopy
 import json
@@ -28,7 +25,7 @@ class SculptureModuleBase():
 		self.initialized = False
 		self.moduleConfig = deepcopy(moduleConfig)
 		self.refreshTimer: Timer | Literal[False] = False
-		self.safeModeBinding: SafeModeBinding | None = None
+		self.safeModeBinding = None
 		self.itemTimers: list[Timer] = []
 		if 'resendDataInterval' in self.moduleConfig['protocol'].keys() and self.moduleConfig['protocol']['resendDataInterval']:
 			self.refreshTimer = Timer(True, self.moduleConfig['protocol']['resendDataInterval'], self.resendOnStates)
@@ -48,11 +45,11 @@ class SculptureModuleBase():
 		self.itemTimers.append(Timer(False, 500, cast(GridPatternModule, self).setItemState, (address, False), True))
 
 
-	def doCommand(self, command: list[Any]) -> Any:
+	def doCommand(self, command):
 		logger.debug('doCommand(%s)', command)
 		functionName = command.pop(0)
 		# Commands name methods at runtime; their argument lists are intentionally dynamic.
-		function: Any = getattr(self, functionName)
+		function = getattr(self, functionName)
 		return function(*command)
 
 	def getId(self) -> str:
@@ -65,7 +62,7 @@ class GridPatternModule(SculptureModuleBase):
 	doUpdates: Callable[[], None]
 	setItemState: Callable[[GridAddress, bool], None]
 
-	def __init__(self, *args: Any) -> None:
+	def __init__(self, *args) -> None:
 		SculptureModuleBase.__init__(self, *args)
 		self.nextPatternInstanceId = 0
 		patternModuleName = 'Patterns.' + self.moduleConfig['patternType']
@@ -91,8 +88,8 @@ class GridPatternModule(SculptureModuleBase):
 		self.patternRowSettings[patternInstanceId][row] = not self.patternRowSettings[patternInstanceId][row]
 
 
-	def getCurrentStateData(self, *args: Any) -> StateData: # Dump all the state data for gui to render it
-		data: StateData = {'availablePatternNames' : self.availablePatternNames, 'currentOutputState' : self.currentOutputState, 'patterns' : {}}
+	def getCurrentStateData(self, *args): # Dump all the state data for gui to render it
+		data = {'availablePatternNames' : self.availablePatternNames, 'currentOutputState' : self.currentOutputState, 'patterns' : {}}
 		for patternInstanceId in self.patterns:
 			patternData = self.patterns[patternInstanceId].getCurrentStateData()
 			patternData['instanceId'] = patternInstanceId
@@ -115,10 +112,10 @@ class GridPatternModule(SculptureModuleBase):
 		del self.patternRowSettings[patternInstanceId]
 		self.doUpdates()
 
-	def reassignPatternInput(self, patternInstanceId: str, *args: Any) -> None: #connect data from an input to a pattern parameter
+	def reassignPatternInput(self, patternInstanceId: str, *args) -> None: #connect data from an input to a pattern parameter
 		return self.patterns[patternInstanceId].reassignInput(*args)
 
-	def reassignPatternInputToNew(self, patternInstanceId: str, inputChannelId: str, newPatternParams: InputConfig) -> None:
+	def reassignPatternInputToNew(self, patternInstanceId: str, inputChannelId: str, newPatternParams) -> None:
 		return self.reassignPatternInput(patternInstanceId, inputChannelId, app.inputManager.createNewInput(newPatternParams))
 
 	def stop(self) -> None:
@@ -131,7 +128,7 @@ class GridPatternModule(SculptureModuleBase):
 
 class LEDModule(GridPatternModule):
 
-	def __init__(self, *args: Any) -> None:
+	def __init__(self, *args) -> None:
 		GridPatternModule.__init__ (self, *args)
 		self.individualToggleStates = [
 			[False for j in range(self.gridSize[1])]
@@ -182,7 +179,7 @@ class LEDModule(GridPatternModule):
 
 
 class PooferModule(GridPatternModule):
-	def __init__(self, *args: Any) -> None:
+	def __init__(self, *args) -> None:
 		GridPatternModule.__init__ (self, *args)
 		self.individualToggleStates = [[False for j in range(self.gridSize[1])] for i in range(self.gridSize[0])]
 		self.currentOutputState = [[False for j in range(self.gridSize[1])] for i in range(self.gridSize[0])]
@@ -225,7 +222,7 @@ class PooferModule(GridPatternModule):
 		self.doUpdates()
 
 class InputOnlyModule(SculptureModuleBase):
-	def __init__(self, *args: Any) -> None:
+	def __init__(self, *args) -> None:
 		SculptureModuleBase.__init__ (self, *args)
 		for inputChannelId in self.moduleConfig['inputs']:
 			self.moduleConfig['inputs'][inputChannelId]['sendMessageOnChange'] = True
@@ -250,13 +247,13 @@ class InputOnlyModule(SculptureModuleBase):
 		self.inputs.stop()
 		SculptureModuleBase.stop(self)
 
-	def getCurrentStateData(self) -> StateData:
+	def getCurrentStateData(self):
 		return {'inputs' : self.inputs.getCurrentStateData()}
 
-	def reassignModuleInputToNew(self, inputChannelId: str, inputParams: InputConfig) -> None:
+	def reassignModuleInputToNew(self, inputChannelId: str, inputParams) -> None:
 		return self.reassignModuleInput(inputChannelId, app.inputManager.createNewInput(inputParams))
 
-	def reassignModuleInput(self, *args: Any) -> None: #connect data from an input to a pattern parameter
+	def reassignModuleInput(self, *args) -> None: #connect data from an input to a pattern parameter
 		return self.inputs.reassignInput(*args)
 
 

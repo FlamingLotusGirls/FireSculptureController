@@ -33,6 +33,5 @@ warn_unused_configs = true
 show_error_codes = true
 pretty = true
 
-[[tool.mypy.overrides]]
-module = ["ProgramModules.*", "Inputs.*", "Patterns.*", "SculptureController", "flaskServer", "sendOscTest"]
-disallow_untyped_defs = true
+# Leave dynamic parameters and results unannotated when no useful type is known.
+disallow_untyped_defs = false
