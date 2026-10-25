@@ -569,7 +569,7 @@ keep additional tests focused on behavior and failure paths, not one test per me
      and inspect cadence and pulse durations separately from deterministic byte equivalence.
      Check silent startup and safe-mode transitions, unplug/reconnect, repeated loads,
      Ctrl+C, and service stop/restart. Confirm no spinning writer CPU.
-   - Install the service, reboot, and browse to `http://<pi>:8080` from another machine.
+   - Install the service, reboot, and browse to `http://<pi>/` from another machine.
      Confirm safe mode is enabled and no non-exempt commands are emitted at boot.
    - Capture serial output using a suitable paired-adaptor setup or the sculpture bus with
      relay loads unpowered. Test real poofers only with the propane/gas side off during

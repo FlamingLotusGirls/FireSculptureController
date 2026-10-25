@@ -21,6 +21,8 @@ python flaskServer.py --sculpture aota
 Open **http://localhost:8080**. Omit `--sculpture` to choose in the GUI. Ctrl+C stops the
 controller. The application does not require a virtual environment.
 
+The [Raspberry Pi systemd service](deploy/README.md) uses port 80: open `http://<pi-address>/`.
+
 For this Windows checkout's already-installed test environment, the launch command is:
 
 ```powershell
@@ -82,8 +84,8 @@ remains a stub. Audio is removed from the active application. The Python 3 depen
 are Flask/Werkzeug, pyserial, and python-osc; gevent, PyAudio, SciPy, and NumPy are not needed.
 
 The root application has automated checks on Windows with Python 3.11 and 3.13, and
-on the Raspberry Pi with Python 3.13.5. Physical relay operation, systemd, and the Pi's Python 2
-fallback remain unverified. See [headless deployment](deploy/README.md)
+on the Raspberry Pi with Python 3.13.5. Physical relay operation, service startup after
+reboot, and the Pi's Python 2 fallback remain unverified. See [headless deployment](deploy/README.md)
 for the service template and [testing](TESTING.md) for the old/new byte comparisons,
 intentional differences, and remaining field checks.
 

@@ -22,12 +22,14 @@ existing serial ports and mappings remain in `sculptureDefinitions/*.json`.
 | Service account/group | `pi` |
 | Serial access | Supplementary group `dialout` |
 | Startup sculpture | `serpent`, starting in safe mode |
-| Web listener | `0.0.0.0:8080` |
+| Web listener | `0.0.0.0:80` |
 | Logs | systemd journal |
 
-The unit gives the service process `dialout` membership for serial access. It uses the
-existing source checkout and does not require a virtual environment. Runtime packages
-are separate from the ignored test artifacts. If installing on another Pi, adjust the
+The unit gives the service process `dialout` membership for serial access and
+`CAP_NET_BIND_SERVICE` to bind port 80 while running as `pi`. The capability is granted
+by systemd to this service; see [systemd capabilities](https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Capabilities).
+It uses the existing source checkout and does not require a virtual environment. Runtime
+packages are separate from the ignored test artifacts. If installing on another Pi, adjust the
 account, paths, and `--sculpture` setting to match that installation.
 
 For a fresh installation, install the pinned runtime packages as the `pi` user:
@@ -55,7 +57,7 @@ sudo systemctl enable --now firesculpture
 sudo systemctl status firesculpture --no-pager
 ```
 
-Open `http://<pi-address>:8080` in a browser. Use `hostname -I` on the Pi to list its
+Open `http://<pi-address>/` in a browser. Use `hostname -I` on the Pi to list its
 addresses. View recent logs or follow them live:
 
 ```sh
@@ -77,15 +79,27 @@ output without sending ON or OFF, and stops the workers. Tympani's exempt contro
 their exception. The unit restarts on failure and allows 15 seconds for process shutdown.
 A restart begins in safe mode. A successful write is not a relay acknowledgement.
 
-If you edit the unit, copy it to `/etc/systemd/system/` again, run `daemon-reload`, then
-restart the service. Changes to the application or sculpture JSON need only a restart.
+To apply a unit change, including the switch from port 8080 to port 80:
+
+```sh
+cd /home/pi/FireSculptureController
+sudo install -m 644 deploy/firesculpture.service /etc/systemd/system/firesculpture.service
+sudo systemctl daemon-reload
+sudo systemctl restart firesculpture
+sudo systemctl status firesculpture --no-pager
+```
+
+Changes to the application or sculpture JSON need only a restart.
 Serpent's unused `ledBus` entry may log a missing `/dev/ttyUSB2`; its configured modules
 use `flameBus` at `/dev/ttyUSB0`.
 
-On 2026-10-24, the prepared unit passed `systemd-analyze verify` on the Pi's systemd 257.
-The pinned runtime packages installed successfully in `/home/pi/.local/lib/firesculpture`;
-dependency checks and controller imports passed using that directory. This unit has not
-yet been installed or started. Reboot, physical disconnect/reconnect, and systemd
-stop/restart checks remain pending.
+On 2026-10-24, the unit passed `systemd-analyze verify` on the Pi's systemd 257. The pinned
+runtime packages installed successfully in `/home/pi/.local/lib/firesculpture`; dependency
+checks and controller imports passed using that directory. The port 80 unit was installed
+and the running service restarted successfully. It remains enabled at boot, runs as `pi`
+with only `CAP_NET_BIND_SERVICE` in its capability sets, and listens on `0.0.0.0:80`.
+The GUI returned HTTP 200; `/getData` reported Serpent in safe mode with `flameBus`
+connected. Nothing was listening on port 8080 after the restart. Reboot and physical
+disconnect/reconnect checks remain pending.
 
 The unchanged Python 2 fallback has its own [setup and launcher](py2/README.md).
