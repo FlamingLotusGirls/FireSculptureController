@@ -408,6 +408,27 @@ reconnect/reconfiguration, immediate safe-mode exit, and shutdown. The frozen Py
 tree, sculpture definitions, and GUI assets remain unchanged. Pi/hardware validation
 remains pending.
 
+## Initial Pi software validation — 2026-10-24
+
+Checked out `py3_port` at the expected `8b97e55` from the FlamingLotusGirls remote.
+The Pi is a Raspberry Pi 4 Model B Rev 1.5 running Debian 13.7 (aarch64) and Python
+3.13.5. Installed the pinned requirements independently into ignored `artifacts/py3-deps/`
+without a virtual environment or system package changes.
+
+The suite passes with **48 passed, 2 skipped**, warnings as errors. Python 2 is absent;
+the fresh application and 92-case protocol comparisons are explicitly skipped. All 59
+saved-baseline scenarios, 75 frozen hashes, and 47 configuration/GUI content comparisons
+pass. The initial run found only CRLF/LF differences in the text-asset comparison; it now
+allows that Git checkout conversion while keeping frozen hashes and binary comparisons
+exact. Mypy passes all 26 active files; compilation and the isolated dependency check pass.
+
+Shutdown tests now send actual SIGINT/SIGTERM on Linux; Angel closes its workers without
+governed output in safe mode. The suite exercises all three configurations using recording
+and loopback transports. Corrected stale OFF-on-shutdown wording in the deployment guide
+and server comment; application behavior is unchanged. No physical serial port was opened.
+Physical timing/hardware, systemd installation/reboot, and the Python 2 fallback remain
+unverified. See `TESTING.md` for commands and local reports.
+
 ## Deferred future work — outside today's scope
 
 **9. Serpent Mother LED protocol.** Keep the stub for today's work. Resume this step only
@@ -548,7 +569,7 @@ keep additional tests focused on behavior and failure paths, not one test per me
      and inspect cadence and pulse durations separately from deterministic byte equivalence.
      Check silent startup and safe-mode transitions, unplug/reconnect, repeated loads,
      Ctrl+C, and service stop/restart. Confirm no spinning writer CPU.
-   - Install the service, reboot, and browse to `http://<pi>:8080` from another machine.
+   - Install the service, reboot, and browse to `http://<pi>/` from another machine.
      Confirm safe mode is enabled and no non-exempt commands are emitted at boot.
    - Capture serial output using a suitable paired-adaptor setup or the sculpture bus with
      relay loads unpowered. Test real poofers only with the propane/gas side off during

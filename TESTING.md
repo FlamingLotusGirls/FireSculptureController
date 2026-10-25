@@ -9,19 +9,21 @@ python -m pytest -q
 ```
 
 In the existing Windows checkout, use `.venv\Scripts\python.exe` in place of `python`
-to use the environment already installed. Warnings are errors by default. No test opens
-a physical serial port: transports are `loop://` or recording/failing adaptors, and
-HTTP/OSC tests bind to localhost on temporary ports.
+to use the environment already installed. Warnings are errors by default. The default
+run opens no physical serial ports: transports are `loop://` or recording/failing
+adaptors, and HTTP/OSC tests bind to localhost on temporary ports. The two hardware
+tests skip unless `--hardware-serial-port` is supplied explicitly.
 
 ## What the tests cover
 
 | File | Evidence |
 | --- | --- |
-| `tests/test_reference.py` | All 75 frozen file hashes; 47 unchanged configuration/GUI files; 59 application scenarios against the saved baseline and a fresh Python 2 run; HeartBeat controls and 360 steps across 42 LEDs with third-party packages disabled. |
+| `tests/test_reference.py` | All 75 frozen file hashes; 47 configuration/GUI comparisons with the explicit Serpent Pi port exception below (text comparison ignores Git's CRLF/LF conversion; binary files remain exact); 59 application scenarios against the saved baseline and a fresh Python 2 run; HeartBeat controls and 360 steps across 42 LEDs with third-party packages disabled. |
 | `tests/test_serial.py` | Exact relay/Tympani bytes through loopback; 92 old/new protocol cases with explicit safe-mode suppression differences; silent startup, safe-mode cancellation, Tympani exemption, failed/partial writes, reconnect, queue overflow/age, and bounded shutdown. |
+| `tests/test_hardware_serial.py` | Optional real-port Serpent checks: 19200 baud/8N1, actual ON/OFF writes, current OFF restoration on reopen, LED stub silence, silent safe-mode startup/patterns/reload/shutdown, and closed connections/joined workers. |
 | `tests/test_osc.py` | Actual UDP pulse/toggle/value routing, GUI address lists, bundles/timetags, pulse auto-OFF, cancellation, self-stop, and socket reuse. |
 | `tests/test_lifecycle.py` | All sculptures and listed patterns, Chase spacing/reverse, pattern removal, timers, reload, partial initialization, HTTP commands, SSE, and consistent state snapshots. |
-| `tests/test_shutdown.py` | Headless boot, SIGINT/SIGTERM handlers, startup/worker failure, final Angel OFF bytes, and joined workers in isolated processes. |
+| `tests/test_shutdown.py` | Headless boot, SIGINT/SIGTERM shutdown, startup/worker failure, no writes during safe mode, and joined workers in isolated processes. Linux receives actual process signals; Windows invokes the registered handlers internally. |
 
 Python 2 is optional for ordinary development. Tests find it via `PYTHON2`, `python2`
 on PATH, or `C:/Python27/python.exe`. Legacy dependencies come from `.deps-py2/` or
@@ -30,6 +32,24 @@ on PATH, or `C:/Python27/python.exe`. Legacy dependencies come from `.deps-py2/`
 as skipped when the interpreter is absent; the full-application comparison also needs
 the legacy dependencies. A bad explicitly selected interpreter or a failing comparison
 is a failure. The saved-baseline comparison always runs.
+
+## Real USB Serial checks
+
+Connect the USB Serial adapter with no sculpture equipment attached. These tests send
+actual Serpent ON/OFF packets on the selected port, without a write guard:
+
+```sh
+python3 -W error -m pytest -q tests/test_hardware_serial.py --hardware-serial-port=/dev/ttyUSB0
+```
+
+Use the Python environment with `requirements-dev.txt` installed. For the current Pi
+test installation, prefix the command with `PYTHONPATH="$PWD/artifacts/py3-deps"`.
+Other adaptors use loopback within these tests; only the explicitly selected port uses
+hardware. Supplying a missing or inaccessible port fails the tests rather than skipping.
+Omitting the option skips both hardware tests before any port is opened.
+
+These tests check application behavior and actual driver write results. Received bytes,
+physical unplug/replug, relay operation, and wire timing still require separate field checks.
 
 ## Byte comparison and its limits
 
@@ -73,6 +93,8 @@ try {
 
 `artifacts/`, `.deps-py2/`, and `.venv*/` are ignored local files. The committed baseline
 and snapshot manifest are reference inputs, not outputs to regenerate during testing.
+Do not commit generated reports or one-off probes. Put reusable checks in `tests/` and
+record useful results and limitations in this document.
 
 ## Intentional differences from Python 2
 
@@ -87,6 +109,7 @@ and snapshot manifest are reference inputs, not outputs to regenerate during tes
 | Delivery recovery | Failed OFF remains pending while safe mode is off; safe-mode entry cancels it. Failed, full, or expired queues restore permitted current state instead of replaying stale ON history. Serial tests exercise these paths. |
 | Lifecycle cleanup | Reload/shutdown stop workers and release sockets/bindings. Removing a pattern recomputes output immediately. Future OSC waits can be cancelled on stop. |
 | Logging and headless launch | Console logging, boot-time sculpture selection, threaded HTTP/SSE, and orderly shutdown replace the old server behavior. Missing serial devices are reported; governed output is not retried in safe mode. |
+| Serpent Pi serial port | The active `serpent.json` selects `/dev/ttyUSB0` for `flameBus`; the frozen reference retains `/dev/ttyUSB1`. The reference comparison permits only this configuration change. |
 
 See [delivery and safe-mode details](dev-notes.md#serial-delivery-and-safe-mode) for the
 limits: queue acceptance is not successful delivery, a driver write is not a hardware
@@ -127,12 +150,56 @@ Step 7, step 8, and the safe-mode correction results are recorded in [the migrat
 use Python 3.13.17 and Python 3.11.15, with Python 2.7.18 for the fresh reference. The
 3.11 run uses the same installed runtime/pytest packages via `PYTHONPATH`; it is not a
 separate clean dependency installation. Requirements are pinned to the verified local
-environment; installation on the Pi still needs validation.
+environment.
 
 Windows shutdown tests invoke the registered handlers through Python's interrupt
-mechanism. Actual Linux signal delivery and systemd behavior remain unverified.
+mechanism. On Linux, the parent sends SIGINT/SIGTERM to the test process directly.
 
-On the available Pi, exercise **all three** configurations with actual timers and serial
+Pi software validation on 2026-10-24 used a Raspberry Pi 4 Model B Rev 1.5, Debian 13.7
+(aarch64), and `/usr/bin/python3` 3.13.5, starting from commit `8b97e55`. The pinned runtime
+and development requirements installed independently into ignored `artifacts/py3-deps/`,
+using the standalone pip zipapp saved at `artifacts/pip.pyz`. No virtual environment or
+system package changes were needed. This is a test installation; normal deployment still
+needs its dependency location configured. Run these commands from the repository root:
+
+```sh
+PYTHONPATH="$PWD/artifacts/py3-deps" /usr/bin/python3 -S -W error -m pytest -q
+PYTHONPATH="$PWD/artifacts/py3-deps" /usr/bin/python3 -m mypy
+PYTHONPATH="$PWD/artifacts/py3-deps" /usr/bin/python3 -S artifacts/pip.pyz check
+```
+
+Results: **48 passed, 2 skipped**, with warnings as errors; mypy passed all 26 active
+source files; active-source compilation and the isolated dependency check passed. All
+59 saved-baseline scenarios, 75 frozen hashes, and 47 configuration/GUI content comparisons
+passed. The initial Linux run exposed CRLF/LF differences in 22 text assets; the text
+comparison now ignores only that conversion, while binary comparisons and frozen hashes
+remain exact. Python 2 is absent, so the fresh application comparison and 92-case protocol
+comparison were skipped. The Python 2 fallback has not been launched on this Pi.
+
+The suite exercised all three sculptures with recording or loopback transports and local
+HTTP/UDP. Angel shutdown passed with actual Linux SIGINT/SIGTERM, no governed writes in
+safe mode, and joined workers. The updated Windows signal path has not been rerun here.
+That initial run opened no physical serial ports and installed no systemd service.
+
+A subsequent Serpent USB Serial check on 2026-10-24 used the attached FT232R adapter
+(`A50285BI`) at `/dev/ttyUSB0`, with Brian confirming that no equipment was connected.
+The active Serpent configuration now selects that port at 19200 baud, 8N1. The check
+used real serial writes with no write guard: the driver accepted `!0111.!0110.` for ON/OFF
+and `!0110.` when a software reopen restored the current OFF state. Startup, safe-mode
+entry, live patterns/manual commands in safe mode, safe-mode reopen, reload, and shutdown
+made no data writes. All five opens were closed and all workers joined. During a two-second
+idle observation, the process used approximately 0.0001 seconds of CPU time.
+
+Serpent's unused `ledBus` definition still names `/dev/ttyUSB2` and reports that it is
+absent; both configured modules use `flameBus`. The Serpent LED protocol remains silent.
+The reusable checks are now in `tests/test_hardware_serial.py`, with the invocation above.
+They check driver acceptance and application lifecycle; they do not verify received bytes,
+physical unplug/replug, relay operation, or wire timing.
+The full suite rerun with `--hardware-serial-port=/dev/ttyUSB0` passed **50 tests**, with
+the two Python 2 comparisons skipped. A separate run without the port option confirmed
+that both hardware tests skip without opening a port.
+
+Remaining field checks: exercise **all three** configurations with actual timers and serial
 I/O: GUI controls and patterns, numeric text-list inputs, RandomPoof, safe-mode entry,
 silent startup, disconnect/reconnect, reload, Ctrl+C, and service stop/restart/reboot. Compare
 captured bytes and inspect pulse durations/cadence separately. Capture through a suitable
