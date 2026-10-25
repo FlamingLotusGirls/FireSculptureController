@@ -2,7 +2,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Literal, cast
 from ProgramModules.Interfaces import Input, SculptureModule
-from ProgramModules.Types import ModuleConfig, SculptureConfig
+from ProgramModules.Types import SculptureConfig
 
 import inspect
 import json
@@ -118,7 +118,8 @@ class SculptureController:
 			app.inputManager = self.inputManager
 			self.currentSculptureId = sculptureId
 			for moduleId, moduleConfig in config['modules'].items():
-				moduleConfig = cast(ModuleConfig, dict(moduleConfig, moduleId=moduleId))
+				# The GUI needs this ID in the loaded configuration returned by getData.
+				moduleConfig['moduleId'] = moduleId
 				moduleClass = getattr(SculptureModules, moduleConfig['moduleType'] + 'Module')
 				self.sculptureModules[moduleId] = moduleClass(moduleConfig)
 		except Exception:

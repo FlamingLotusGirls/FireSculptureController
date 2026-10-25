@@ -218,6 +218,28 @@ def test_partial_serial_initialization_closes_open_ports(controller, monkeypatch
     assert not app.safeMode.bindings
 
 
+@pytest.mark.parametrize('name', ['aota', 'serpent', 'tympani'])
+def test_gui_module_ids_and_pattern_choices_survive_load_and_add(controller, name):
+    with web.flaskApp.test_client() as client:
+        assert client.post('/doCommand', json=['loadSculpture', name]).status_code == 200
+        state = client.get('/getData').json
+        for module_id, module in state['modules'].items():
+            # ui.js uses this value to find the panel in which it renders controls.
+            assert module['moduleId'] == module_id
+            definition = controller.sculptureDefinitions[name]['modules'][module_id]
+            if definition['moduleType'] == 'Poofer':
+                assert module['availablePatternNames'] == definition['patterns']
+        response = client.post('/doCommand', json=['addPattern', 'poofers', 'AllPoof'])
+        assert response.status_code == 200
+        state = client.get('/getData').json
+        poofers = state['modules']['poofers']
+        assert poofers['moduleId'] == 'poofers'
+        assert response.json['result'] in poofers['patterns']
+        assert state['safeMode'] is True
+        # The runtime ID belongs to the loaded copy, not the saved definition.
+        assert 'moduleId' not in controller.sculptureDefinitions[name]['modules']['poofers']
+
+
 def test_http_load_state_sse_and_file_paths(controller, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     assert set(SculptureController().sculptureDefinitions) == {'aota', 'serpent', 'tympani'}
