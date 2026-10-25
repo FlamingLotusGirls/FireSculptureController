@@ -4,11 +4,12 @@ After=network.target
 
 [Service]
 Type=simple
-User=firesculpture
-Group=firesculpture
+User=pi
+Group=pi
 SupplementaryGroups=dialout
-WorkingDirectory=/opt/FireSculptureController
-ExecStart=/usr/bin/python3 -u /opt/FireSculptureController/flaskServer.py --host 0.0.0.0 --port 8080 --sculpture aota --log-level INFO
+WorkingDirectory=/home/pi/FireSculptureController
+Environment=PYTHONPATH=/home/pi/.local/lib/firesculpture
+ExecStart=/usr/bin/python3 -u /home/pi/FireSculptureController/flaskServer.py --host 0.0.0.0 --port 8080 --sculpture serpent --log-level INFO
 Restart=on-failure
 RestartSec=2
 TimeoutStopSec=15

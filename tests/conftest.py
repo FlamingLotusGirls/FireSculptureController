@@ -1,4 +1,4 @@
-"""Locate the optional Python 2 reference without mixing its packages into Python 3."""
+"""Select optional hardware checks and locate the separate Python 2 reference."""
 import os
 from pathlib import Path
 import shutil
@@ -7,6 +7,13 @@ import subprocess
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--hardware-serial-port", metavar="PORT",
+        help="Run real serial writes on an adapter with no equipment attached, e.g. /dev/ttyUSB0",
+    )
 
 
 @pytest.fixture(scope="session")

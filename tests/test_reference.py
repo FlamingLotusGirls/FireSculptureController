@@ -35,7 +35,7 @@ def test_all_preserved_python2_files_retain_their_original_bytes():
         assert hashlib.sha256(data).hexdigest() == expected_hash, name
 
 
-def test_active_configuration_and_gui_match_the_preserved_files():
+def test_active_configuration_and_gui_match_except_serpent_pi_port():
     manifest = read_json(REFERENCE / "snapshot.json")
     unchanged = [name for name in manifest
                  if name == "config.json" or name.startswith(("sculptureDefinitions/", "jsGui/"))]
@@ -43,6 +43,12 @@ def test_active_configuration_and_gui_match_the_preserved_files():
     for name in unchanged:
         current = (ROOT / name).read_bytes()
         original = (ROOT / "py2" / name).read_bytes()
+        if name == "sculptureDefinitions/serpent.json":
+            # The Pi deployment changes only Serpent's flame-bus port.
+            expected = json.loads(original)
+            expected["adaptors"]["flameBus"]["ports"] = ["/dev/ttyUSB0"]
+            assert json.loads(current) == expected, name
+            continue
         path = Path(name)
         if path.suffix in {'.json', '.htm', '.html', '.js', '.css', '.md', '.txt'} or path.name == 'LICENSE':
             # Git checks out LF on Linux; the frozen Windows snapshot retains CRLF.

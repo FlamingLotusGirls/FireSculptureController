@@ -2,7 +2,7 @@
   "sculptureId" : "serpent",
   "sculptureName" : "The Serpent Mother",
   "adaptors" : {
-    "flameBus" : {"type" : "serial", "baudrate" : 19200, "ports" : ["/dev/ttyUSB1"]},
+    "flameBus" : {"type" : "serial", "baudrate" : 19200, "ports" : ["/dev/ttyUSB0"]},
     "ledBus" : {"type" : "serial", "baudrate" : 19200, "ports" : ["/dev/ttyUSB2"]}
   },
   "modules" : {
