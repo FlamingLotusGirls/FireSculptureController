@@ -1,0 +1,34 @@
+[Unit]
+Description=Fire Sculpture touchscreen (Cog DRM/GLES)
+After=systemd-user-sessions.service firesculpture.service getty@tty1.service
+Conflicts=getty@tty1.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+SupplementaryGroups=video render input
+RuntimeDirectory=firesculpture-kiosk
+RuntimeDirectoryMode=0700
+CacheDirectory=firesculpture-kiosk
+StateDirectory=firesculpture-kiosk
+Environment=XDG_RUNTIME_DIR=/run/firesculpture-kiosk
+Environment=XDG_CACHE_HOME=/var/cache/firesculpture-kiosk
+Environment=XDG_DATA_HOME=/var/lib/firesculpture-kiosk
+ExecStartPre=+/usr/bin/chvt 1
+ExecStart=/usr/bin/python3 /home/pi/FireSculptureController/deploy/kiosk.py
+Restart=always
+RestartSec=5
+KillMode=control-group
+TimeoutStopSec=10
+StandardInput=tty-fail
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
