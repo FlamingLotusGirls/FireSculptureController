@@ -82,14 +82,16 @@
   <div style="display:none;">
     <div id="inputs" style="margin:0px; padding:0px;">
       {{for inputs}}
-        <div style="display:none;" id="inputInstance{{>inputInstanceId}}_div" class="ui-widget ui-widget-content ui-corner-all ui-state-active inputOuterWrapper">
+        <div style="display:none;" id="inputInstance{{>inputInstanceId}}_div" class="ui-widget ui-widget-content ui-corner-all ui-state-active inputOuterWrapper{{if inParams.length > 1}} inputMultipleControls{{/if}}">
           <span class="inputDescription" id="inputInstance{{>inputInstanceId}}_description"></span>
+          <div class="inputControls">
           {{for inParams}}
             <div id="inputInstance{{>inputInstanceId}}_input{{>inputIndex}}_outerContainer" class="inputControlWrapper">
               <div id="inputInstance{{>inputInstanceId}}_input{{>inputIndex}}_container" style="position:relative;"></div>
               <span class="inputControlDescription" id="inputInstance{{>inputInstanceId}}_input{{>inputIndex}}_description"></span>
             </div>
           {{/for}}
+          </div>
           <div class="inputOutputWrapper">
             {{for outParams}}
               <div id="inputInstance{{>inputInstanceId}}_output{{>outputIndex}}_container" class="inputSubOutputWrapper">
@@ -161,21 +163,19 @@
     </select>
   </div>
   <div style="clear:both; height:10px; width:100%"></div>
-  <div id="{{>moduleId}}_patterns" class="accordion">
+  <div id="{{>moduleId}}_patterns" class="accordion patternList">
     {{for patterns}}
       <h3 id="{{>patternInstanceId}}_heading"
 	  onclick="showPatternDetails('{{>moduleId}}', '{{>patternInstanceId}}')">
 	{{>patternName}} pattern
       </h3>
-      <div id="{{>moduleId}}_pattern{{>patternInstanceId}}">
-        <div style="float:left; width:0px; height:300px;"></div>
-        <div style="float:right; text-align:center; height:250px; width:125px; margin:10px; padding:5px" class="ui-widget ui-widget-content ui-corner-all">
+      <div id="{{>moduleId}}_pattern{{>patternInstanceId}}" class="patternDetails">
+        <div class="patternActions ui-widget ui-widget-content ui-corner-all">
           <button id="{{>moduleId}}_{{>patternInstanceId}}_removePattern"
-		  class="removePatternButton" style="margin-bottom:20px;">
+		  class="removePatternButton">
 	    Remove pattern
 	  </button>
           {{for rowSettings}}
-            <br>
             <input type="checkbox"
 		   id="{{>moduleId}}_{{>patternInstanceId}}_{{>rowIndex}}_toggleRow"
 		   {{if enabled}}checked = "checked"{{/if}}
@@ -223,15 +223,13 @@
     </select>
   </div>
   <div style="clear:both; height:10px; width:100%"></div>
-  <div id="{{>moduleId}}_patterns" class="accordion">
+  <div id="{{>moduleId}}_patterns" class="accordion patternList">
     {{for patterns}}
       <h3 id="{{>patternInstanceId}}_heading" onclick="showPatternDetails('{{>moduleId}}', '{{>patternInstanceId}}')">{{>patternName}} pattern</h3>
-      <div id="{{>moduleId}}_pattern{{>patternInstanceId}}">
-        <div style="float:left; width:0px; height:300px;"></div>
-        <div style="float:right; text-align:center; height:250px; width:125px; margin:10px; padding:5px" class="ui-widget ui-widget-content ui-corner-all">
-          <button id="{{>moduleId}}_{{>patternInstanceId}}_removePattern" class="removePatternButton" style="margin-bottom:20px;">Remove pattern</button>
+      <div id="{{>moduleId}}_pattern{{>patternInstanceId}}" class="patternDetails">
+        <div class="patternActions ui-widget ui-widget-content ui-corner-all">
+          <button id="{{>moduleId}}_{{>patternInstanceId}}_removePattern" class="removePatternButton">Remove pattern</button>
           {{for rowSettings}}
-            <br>
             <input type="checkbox" id="{{>moduleId}}_{{>patternInstanceId}}_{{>rowIndex}}_toggleRow" {{if enabled}}checked = "checked"{{/if}} class="toggleRowButton">
             <label for="{{>moduleId}}_{{>patternInstanceId}}_{{>rowIndex}}_toggleRow" class="toggleRowLabel">Row {{>rowIndex}} {{if enabled}}Enabled{{else}}Disabled{{/if}}</label>
           {{/for}}

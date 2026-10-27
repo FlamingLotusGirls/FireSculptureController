@@ -5,6 +5,10 @@ var allSculptureData = false;
 var currentView = {'activeTab' : false, 'activeModule' : false, activeSections : {}, sculptureIsLoaded:false}
 var serverSentEventStream = false;
 var stateRefresh = {pending: false, timer: null, inFlight: false, pointers: {}};
+var isTouchDisplay = /(?:^|[?&])display=touch(?:&|$)/.test(window.location.search);
+if (isTouchDisplay){
+	document.documentElement.classList.add('touch-display');
+}
 
 
 function convertRGBTupleToRGBString(tuple) {
@@ -88,14 +92,19 @@ function showRebindDialog(moduleId, patternInstanceId, inputChannelId){
 	$('#dialog').append($('#selectTemplate').render(selectData));
 	$('#dialog').append('<div id="dialogInputs"></div>');
 	$('#dialog').dialog({
+		title: 'Change input',
 		autoOpen: true,
-		height: 300,
-		width: 350,
+		height: isTouchDisplay ? Math.min(400, $(window).height() - 24) : 300,
+		width: isTouchDisplay ? Math.min(420, $(window).width() - 24) : 350,
+		dialogClass: isTouchDisplay ? 'inputBindingDialog' : '',
+		draggable: !isTouchDisplay,
+		resizable: !isTouchDisplay,
 		modal: true,
 		buttons: {
 			"Update": function() {
-				doNewInputBinding(moduleId, patternInstanceId, inputChannelId);
-				$(this).dialog("close");
+				if (doNewInputBinding(moduleId, patternInstanceId, inputChannelId) !== false){
+					$(this).dialog("close");
+				}
 			},
 			"Cancel": function() {
 				$(this).dialog("close");
@@ -105,6 +114,7 @@ function showRebindDialog(moduleId, patternInstanceId, inputChannelId){
 			$(this).empty().dialog('destroy');
 		}
 	});
+	initInputSelector();
 }
 function showGlobalInputDialog(){
 	selectData = {'id' : 'inputSelector', 'onChange' : 'onChange = "showInputParamsForm()"', 'options' : [{'description' : 'Select Input', 'value' : 'none'}]};
@@ -114,14 +124,19 @@ function showGlobalInputDialog(){
 	$('#dialog').append($('#selectTemplate').render(selectData));
 	$('#dialog').append('<div id="dialogInputs"></div>');
 	$('#dialog').dialog({
+		title: 'Add input',
 		autoOpen: true,
-		height: 300,
-		width: 350,
+		height: isTouchDisplay ? Math.min(400, $(window).height() - 24) : 300,
+		width: isTouchDisplay ? Math.min(420, $(window).width() - 24) : 350,
+		dialogClass: isTouchDisplay ? 'inputBindingDialog' : '',
+		draggable: !isTouchDisplay,
+		resizable: !isTouchDisplay,
 		modal: true,
 		buttons: {
 			"Update": function() {
-				doNewInputBinding('main');
-				$(this).dialog("close");
+				if (doNewInputBinding('main') !== false){
+					$(this).dialog("close");
+				}
 			},
 			"Cancel": function() {
 				$(this).dialog("close");
@@ -131,10 +146,42 @@ function showGlobalInputDialog(){
 			$(this).empty().dialog('destroy');
 		}
 	});
+	initInputSelector();
+}
+
+function initInputSelector(){
+	var select = $('#inputSelector');
+	var updateButton = $('#dialog').dialog('widget').find('.ui-dialog-buttonpane button').first();
+	function updateSelection(){
+		updateButton.button('option', 'disabled', !select.val() || select.val() == 'none');
+	}
+	select.on('change.inputSelector', updateSelection);
+	updateSelection();
+	if (!isTouchDisplay) return;
+
+	// Cog's DRM platform cannot show native select popups. Keep the select as
+	// the form value and render its choices inside the existing modal instead.
+	select.hide().attr('aria-hidden', 'true');
+	var choices = $('<div id="inputSelectorChoices" class="inputSelectorChoices" role="group" aria-label="Input types">')
+		.insertAfter(select);
+	select.find('option').each(function(){
+		var option = this;
+		if (option.value == 'none') return;
+		$('<button type="button" class="inputSelectorChoice">')
+			.text(option.text).prop('disabled', option.disabled)
+			.attr('aria-pressed', String(option.selected))
+			.appendTo(choices).button().click(function(){
+				choices.find('button').attr('aria-pressed', 'false');
+				$(this).attr('aria-pressed', 'true');
+				select.val(option.value).trigger('change');
+			});
+	});
 }
 
 function doNewInputBinding(moduleId, patternInstanceId, inputChannelId){
-	values = JSON.parse($('#inputSelector').val());
+	var selected = $('#inputSelector').val();
+	if (!selected || selected == 'none') return false;
+	var values = JSON.parse(selected);
 	if (values[0] == 'running'){
 		if (patternInstanceId){
 			doCommand(['reassignPatternInput', moduleId, patternInstanceId, inputChannelId, parseInt(values[1]), parseInt(values[2])])
@@ -213,7 +260,10 @@ function doNewInputBinding(moduleId, patternInstanceId, inputChannelId){
 }
 
 function showInputParamsForm(){
-	values = JSON.parse($('#inputSelector').val());
+	var selected = $('#inputSelector').val();
+	$('#dialogInputs').empty();
+	if (!selected || selected == 'none') return;
+	var values = JSON.parse(selected);
 	formFields = [];
 	if (values[0] == 'new'){
 		inputTypeData = allSculptureData.availableInputTypes[values[1]][values[2]];
@@ -393,9 +443,12 @@ function buildAll(){
 					break;
 			}
 		});
-		$( ".accordion" ).accordion({
-			collapsible : true,
-			active : false
+		$(".accordion").each(function(){
+			$(this).accordion({
+				collapsible: true,
+				active: false,
+				heightStyle: $(this).hasClass('patternList') ? 'content' : 'auto'
+			});
 		});
 		if (currentView.activeModule){
 			$('#sculptureControl').tabs({ active : $("#sculptureControl>div").index($("#" + currentView.activeModule + '_module')) });
@@ -788,7 +841,7 @@ function handleCommandResult(result){
 }
 function initPatternChooser(moduleId){
 	var chooser = $('#' + moduleId + '_patternChoices');
-	if (!/(?:^|[?&])display=touch(?:&|$)/.test(window.location.search)){
+	if (!isTouchDisplay){
 		chooser.menu();
 		return;
 	}

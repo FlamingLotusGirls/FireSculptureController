@@ -7,6 +7,31 @@ body{
   font-size: 75%;
   color:#87CEEB;
 }
+/* Use persistent scrollbars instead of WPE's fading overlays on the kiosk.
+   Cover both the page and nested panes; keep normal browser styling elsewhere. */
+html.touch-display::-webkit-scrollbar,
+html.touch-display ::-webkit-scrollbar{
+  width: 18px;
+  height: 18px;
+  background: #1f3036;
+}
+html.touch-display::-webkit-scrollbar-thumb,
+html.touch-display ::-webkit-scrollbar-thumb{
+  background: #87CEEB;
+  border: 3px solid #1f3036;
+  border-radius: 9px;
+  min-height: 36px;
+  min-width: 36px;
+}
+html.touch-display::-webkit-scrollbar-thumb:active,
+html.touch-display ::-webkit-scrollbar-thumb:active{
+  background: #FFCD4D;
+}
+html.touch-display::-webkit-scrollbar-corner,
+html.touch-display ::-webkit-scrollbar-corner{
+  background: #1f3036;
+}
+
 .inputDescription, .inputControlDescription{
   display:block;
   clear:both;
@@ -52,6 +77,65 @@ body{
   color: #87CEEB;
   font-variant:small-caps;
   font-size: 14px;
+}
+/* Pattern controls flow from the left, without wrapping around a sidebar. */
+.patternActions{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  margin-bottom: 12px;
+}
+.patternDetails #inputs{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+.patternDetails .inputOuterWrapper{
+  float: none;
+  margin: 0;
+  width: 122px;
+  max-width: 100%;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+}
+.patternDetails .inputMultipleControls{
+  width: 346px;
+}
+.patternDetails .inputControls{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px;
+}
+.patternDetails .inputControlWrapper{
+  float: none;
+  flex: 0 0 100px;
+  height: auto;
+  margin: 0;
+}
+.patternDetails .inputDescription{
+  height: auto;
+  min-height: 36px;
+  max-width: none;
+  padding: 8px;
+  box-sizing: border-box;
+}
+.patternDetails .inputControlDescription{
+  height: auto;
+  min-height: 32px;
+}
+.patternDetails .inputOutputWrapper{
+  margin: 0 0 10px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.patternDetails .inputSubOutputWrapper{
+  width: 110px;
+  float: none;
 }
 .rebindButton{
   font-size:12px !important;
@@ -119,7 +203,8 @@ body{
 
 /* In-page pattern chooser used only by the touchscreen client. */
 button.addPattern.ui-button,
-.patternChooserDialog button.ui-button{
+.patternChooserDialog button.ui-button,
+.inputBindingDialog button.ui-button{
   background: #1f3036;
   color: #87CEEB;
   border: 1px solid #87CEEB;
@@ -133,12 +218,37 @@ button.addPattern.ui-button,
 button.addPattern.ui-button:hover,
 button.addPattern.ui-button:focus,
 .patternChooserDialog button.ui-button:hover,
-.patternChooserDialog button.ui-button:focus{
+.patternChooserDialog button.ui-button:focus,
+.inputBindingDialog button.ui-button:hover,
+.inputBindingDialog button.ui-button:focus{
   background: #87CEEB;
   color: #000000;
 }
 button.addPattern.ui-button:focus,
-.patternChooserDialog button.ui-button:focus{
+.patternChooserDialog button.ui-button:focus,
+.inputBindingDialog button.ui-button:focus{
   outline: 2px solid #FFCD4D;
   outline-offset: 2px;
+}
+.inputBindingDialog .inputSelectorChoice{
+  display: block;
+  width: 100%;
+  text-align: left;
+  white-space: normal;
+}
+.inputSelectorChoices{
+  max-height: 180px;
+  overflow-y: auto;
+  margin: 8px 0;
+}
+.inputBindingDialog .inputSelectorChoice{
+  margin-bottom: 6px;
+}
+.inputBindingDialog .inputSelectorChoice[aria-pressed="true"]{
+  background: #87CEEB;
+  color: #000000;
+  border-color: #FFCD4D;
+}
+.inputBindingDialog #dialogInputs{
+  margin-top: 12px;
 }
