@@ -8,9 +8,11 @@
   <script type="text/javascript" src="jsGui/lib/jquery-knob/js/jquery.knob.js"></script>
   <script type="text/javascript" src="jsGui/lib/jsrender/jsrender.min.js"></script>
   <script type="text/javascript" src="jsGui/ui.js"></script>
+  <script type="text/javascript" src="jsGui/keyboard.js"></script>
 
   <link rel="stylesheet" type="text/css" href="jsGui/style.css">
   <link rel="stylesheet" type="text/css" href="jsGui/lib/jquery-ui-1.10.4.custom/css/trontastic/jquery-ui-1.10.4.custom.css">
+  <link rel="stylesheet" type="text/css" href="jsGui/keyboard.css">
   <script type="text/javascript">
     $(document).ready(function(e) {
       doInit();
@@ -48,7 +50,7 @@
           {{for serialAdaptors}}
             <span style="text-align:center; display:inline-block; width:100px; font-weight:bold" class="serialAdaptorInput ui-widget ui-widget-content ui-corner-all ui-state-active">{{>adaptorId}}</span>
             <label for="{{>adaptorId}}Baudrate" class="serialAdaptorInputLabel">Baudrate</label>
-            <input id="{{>adaptorId}}Baudrate" value="{{>baudrate}}" class="serialAdaptorInput ui-widget ui-widget-content ui-corner-all ui-state-active">
+            <input id="{{>adaptorId}}Baudrate" inputmode="numeric" value="{{>baudrate}}" class="serialAdaptorInput ui-widget ui-widget-content ui-corner-all ui-state-active">
             <label for="{{>adaptorId}}Ports" class="serialAdaptorInputLabel">Ports(separated by space)</label>
             <input id="{{>adaptorId}}Ports" value="{{>ports}}" class="serialAdaptorInput ui-widget ui-widget-content ui-corner-all ui-state-active">
             <button class="serialAdaptorUpdateButton" id="{{>adaptorId}}_UpdateButton">Change</button>
@@ -240,7 +242,7 @@
 </script>
 
 <script id="knobTemplate" type="text/x-jsrender">
-  <input id="{{>id}}" value="{{>currentValue}}" data-width="90" data-height="90" data-max="{{>max}}" data-min="{{>min}}" data-skin="tron" data-displayprevious=true class="knob" data-thickness=".25">
+  <input id="{{>id}}" inputmode="numeric" value="{{>currentValue}}" data-width="90" data-height="90" data-max="{{>max}}" data-min="{{>min}}" data-skin="tron" data-displayprevious=true class="knob" data-thickness=".25">
 </script>
 <script id="checkButtonTemplate" type="text/x-jsrender">
   <input id="{{>id}}" {{>checked}} type="checkbox"><label for="{{>id}}" style="width:75px; height:75px;" class="inputControl"> </label>
@@ -274,9 +276,9 @@
     <label for="{{>id}}">{{>label}}</label><br>
     {{if input}}
       {{if value}}
-         <input id="{{>id}}" value="{{>value}}">
+         <input id="{{>id}}" inputmode="{{>inputMode}}" value="{{>value}}">
       {{else}}
-         <input id="{{>id}}">
+         <input id="{{>id}}" inputmode="{{>inputMode}}">
       {{/if}}
     {{else checkbox}}
       <input type="checkbox" id="{{>id}}">

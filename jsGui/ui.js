@@ -270,6 +270,7 @@ function showInputParamsForm(){
 		if (inputTypeData.setupParamsNeeded){
 			$.each(inputTypeData.setupParamsNeeded, function (paramIndex, paramData){
 				fieldData = {"id" : "inputDefinitionMainParam" + paramData[2], "label" : paramData[1]}
+				fieldData.inputMode = paramData[0] == 'int' ? 'numeric' : 'text';
 				if (paramData[0] == 'text' || paramData[0] == 'textList' || paramData[0] == 'int'){
 					fieldData['input'] = true;
 					if (inputTypeData[paramData[2]] != undefined){
@@ -295,6 +296,7 @@ function showInputParamsForm(){
 				}
 				$.each(paramsData, function (paramIndex, paramData){
 					fieldData = {"id" : "inputDefinitionInputParam" + inputIndex + paramData[2], "label" : inputData.description + ':' + paramData[1]}
+					fieldData.inputMode = paramData[0] == 'int' ? 'numeric' : 'text';
 					if (paramData[2] in inputData){
 						paramDefault = inputData[paramData[2]];
 						if (typeof(paramDefault) == 'number'){
@@ -380,6 +382,7 @@ function reloadData(){
 function stateRefreshBlocked(){
 	return !$.isEmptyObject(stateRefresh.pointers)
 		|| $('#dialog').is('.ui-dialog-content:visible')
+		|| $('.softKeyboard').is(':visible')
 		|| $(document.activeElement).is('textarea, input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit])');
 }
 

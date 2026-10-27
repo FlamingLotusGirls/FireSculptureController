@@ -1,0 +1,58 @@
+.softKeyboardDialog.ui-dialog{
+  box-sizing: border-box;
+  background: #101c22;
+  color: #87CEEB;
+  border: 2px solid #87CEEB;
+}
+.softKeyboardDialog .ui-dialog-title{
+  font-size: 16px;
+}
+.softKeyboardDialog .softKeyboard{
+  padding: 8px;
+}
+.softKeyboardDialog .softKeyboardPreview{
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  margin: 0 0 6px;
+  padding: 6px;
+  font: 22px monospace;
+  background: #000;
+  color: #fff;
+  border: 1px solid #87CEEB;
+}
+.softKeyboardError{
+  color: #FFCD4D;
+  font-size: 14px;
+}
+.softKeyboardError:empty{ display: none; }
+.softKeyboardRow{
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+.softKeyboardRow button{
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  padding: 4px;
+  font: 18px sans-serif;
+  border: 1px solid #87CEEB;
+  border-radius: 5px;
+  background: #1f3036;
+  color: #87CEEB;
+  touch-action: manipulation;
+}
+.softKeyboardRow .softKeyboardSpace{ flex-grow: 4; }
+.softKeyboardRow .softKeyboardWide{ flex-grow: 1.5; }
+.softKeyboardRow .softKeyboardDone,
+.softKeyboardRow button[aria-pressed="true"],
+.softKeyboardRow button:active{
+  background: #87CEEB;
+  color: #000;
+}
+.softKeyboardRow button:focus{
+  outline: 2px solid #FFCD4D;
+  outline-offset: -2px;
+}

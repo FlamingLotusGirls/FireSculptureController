@@ -6,12 +6,15 @@ import array
 from contextlib import contextmanager
 import fcntl
 import glob
+import json
 import os
+from pathlib import Path
 import signal
 import subprocess
 import sys
 import termios
-from threading import Event
+from threading import Event, Thread
+import time
 import tty
 from urllib.error import URLError
 from urllib.request import ProxyHandler, build_opener
@@ -22,6 +25,81 @@ COG_COMMAND = [
     '--platform=drm', '--platform-params=renderer=gles',
     '--webprocess-failure=exit', URL,
 ]
+
+
+def physical_keyboard_connected(
+        sys_input: Path = Path('/sys/class/input'),
+        udev_data: Path = Path('/run/udev/data')) -> bool:
+    """Use udev's typing-keyboard classification, not the generic KEY flag.
+
+    USB and connected Bluetooth HID keyboards expose input event devices.
+    This reads device metadata only, never input events or typed characters.
+    """
+    for event in sys_input.glob('event*'):
+        try:
+            device = (event / 'dev').read_text().strip()
+            properties = (udev_data / ('c' + device)).read_text().splitlines()
+        except FileNotFoundError:
+            continue  # Device may have been unplugged during this scan.
+        if 'E:ID_INPUT_KEYBOARD=1' in properties:
+            return True
+    return False
+
+
+@contextmanager
+def keyboard_status(
+        status_path: Path | None = None,
+        public_path: Path | None = None):
+    """Publish a tiny status file through the existing static-file route.
+
+    The changing file lives in the kiosk's tmpfs runtime directory, avoiding
+    writes to the SD card on each poll. The static directory has only a link.
+    No controller imports, extra web listener, or controller restart needed.
+    """
+    if status_path is None:
+        status_path = Path(os.environ['XDG_RUNTIME_DIR']) / 'keyboard-status.json'
+    if public_path is None:
+        public_path = Path(__file__).resolve().parents[1] / 'jsGui/kiosk-input.json'
+    stop = Event()
+    temporary = status_path.with_suffix('.tmp')
+    link = public_path.with_suffix('.tmp')
+
+    def publish():
+        try:
+            connected = physical_keyboard_connected()
+        except OSError:
+            connected = None
+        temporary.write_text(json.dumps({
+            'keyboardConnected': connected, 'updatedAt': int(time.time() * 1000)
+        }))
+        temporary.replace(status_path)
+
+    def monitor():
+        while not stop.wait(1):
+            try:
+                publish()
+            except OSError as error:
+                print('Keyboard status unavailable: ' + str(error), flush=True)
+                return  # The browser rejects stale status and offers its keyboard.
+
+    worker = None
+    try:
+        publish()
+        link.unlink(missing_ok=True)
+        link.symlink_to(status_path)
+        link.replace(public_path)
+        worker = Thread(target=monitor, name='keyboard-status', daemon=True)
+        worker.start()
+    except OSError as error:
+        print('Keyboard detection unavailable: ' + str(error), flush=True)
+    try:
+        yield
+    finally:
+        stop.set()
+        if worker is not None:
+            worker.join(timeout=2)
+        for path in (public_path, link, status_path, temporary):
+            path.unlink(missing_ok=True)
 
 
 def display_ready() -> bool:
@@ -91,7 +169,7 @@ def main() -> int:
     env.pop('DISPLAY', None)
     env.pop('WAYLAND_DISPLAY', None)
     env['COG_PLATFORM_DRM_MODE_MAX'] = '800x480'
-    with console_mode():
+    with keyboard_status(), console_mode():
         if stop.is_set():
             return 0
         print('Starting Cog with direct DRM/GLES at ' + URL, flush=True)
