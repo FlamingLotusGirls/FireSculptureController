@@ -107,6 +107,9 @@ class GridPatternModule(SculptureModuleBase):
 		return newInstanceId
 
 	def removePattern(self, patternInstanceId: str) -> None: #remove a pattern instance from the stack
+		# Another browser may already have removed this pattern.
+		if patternInstanceId not in self.patterns:
+			return
 		self.patterns[patternInstanceId].stop()
 		del self.patterns[patternInstanceId]
 		del self.patternRowSettings[patternInstanceId]

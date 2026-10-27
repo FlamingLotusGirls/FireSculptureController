@@ -240,6 +240,45 @@ def test_gui_module_ids_and_pattern_choices_survive_load_and_add(controller, nam
         assert 'moduleId' not in controller.sculptureDefinitions[name]['modules']['poofers']
 
 
+def test_two_clients_receive_pattern_changes_and_stale_remove_is_harmless(controller):
+    web.executeCommand(['loadSculpture', 'serpent'])
+    first = web.flaskApp.test_client()
+    second = web.flaskApp.test_client()
+    responses = [client.get('/dataStream', buffered=False) for client in (first, second)]
+    streams = [iter(response.response) for response in responses]
+    try:
+        for stream in streams:
+            assert next(stream) == b': connected\n\n'
+        added = first.post('/doCommand', json=['addPattern', 'poofers', 'AllPoof'])
+        assert added.status_code == 200
+        for stream in streams:
+            assert json.loads(next(stream).decode().removeprefix('data: ')) == {'stateChanged': True}
+        pattern_id = added.json['result']
+        assert pattern_id in second.get('/getData').json['modules']['poofers']['patterns']
+        for client in (second, first):
+            # The first client's old Remove button may arrive after the second deleted it.
+            removed = client.post('/doCommand', json=['removePattern', 'poofers', pattern_id])
+            assert removed.status_code == 200
+            for stream in streams:
+                assert json.loads(next(stream).decode().removeprefix('data: ')) == {'stateChanged': True}
+            assert first.get('/getData').json['modules']['poofers']['patterns'] == {}
+            assert not failureEvent.is_set()
+        assert pattern_id not in controller.sculptureModules['poofers'].patternRowSettings
+    finally:
+        for response in responses:
+            response.close()
+
+
+def test_stale_pattern_remove_does_not_trigger_server_failure(controller):
+    web.executeCommand(['loadSculpture', 'serpent'])
+    client = web.flaskApp.test_client()
+    added = client.post('/doCommand', json=['addPattern', 'poofers', 'AllPoof'])
+    command = ['removePattern', 'poofers', added.json['result']]
+    assert client.post('/doCommand', json=command).status_code == 200
+    assert client.post('/doCommand', json=command).status_code == 200
+    assert not failureEvent.is_set()
+
+
 def test_http_load_state_sse_and_file_paths(controller, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     assert set(SculptureController().sculptureDefinitions) == {'aota', 'serpent', 'tympani'}
@@ -255,6 +294,7 @@ def test_http_load_state_sse_and_file_paths(controller, monkeypatch, tmp_path):
             stream = iter(response.response)
             assert next(stream) == b': connected\n\n'
             assert client.post('/doCommand', json=['setSafeMode', False]).status_code == 200
+            assert json.loads(next(stream).decode().removeprefix('data: ')) == {'stateChanged': True}
             assert client.post('/doCommand', json=['setItemState', 'poofers', [0, 0], True]).status_code == 200
             event = json.loads(next(stream).decode().removeprefix('data: '))
             assert event['outputChanged'][0]['moduleId'] == 'poofers'
@@ -280,6 +320,8 @@ def test_threaded_http_serves_commands_while_sse_is_open(controller):
                                   headers={'Content-Type': 'application/json'})
                 with urlopen(request, timeout=2) as response:
                     assert response.status == 200
+            assert json.loads(stream.readline().decode().removeprefix('data: ')) == {'stateChanged': True}
+            assert stream.readline() == b'\n'
             event = json.loads(stream.readline().decode().removeprefix('data: '))
             assert event['outputChanged'][0]['data'][0] == [[0, 0], True]
             with urlopen(base + '/getData', timeout=2) as response:

@@ -116,3 +116,29 @@ body{
 .toggleRowLabel{
   margin-top:2px;
 }
+
+/* In-page pattern chooser used only by the touchscreen client. */
+button.addPattern.ui-button,
+.patternChooserDialog button.ui-button{
+  background: #1f3036;
+  color: #87CEEB;
+  border: 1px solid #87CEEB;
+  min-height: 44px;
+}
+.patternChooserDialog button.patternChoice{
+  display: block;
+  width: 100%;
+  margin: 6px 0;
+}
+button.addPattern.ui-button:hover,
+button.addPattern.ui-button:focus,
+.patternChooserDialog button.ui-button:hover,
+.patternChooserDialog button.ui-button:focus{
+  background: #87CEEB;
+  color: #000000;
+}
+button.addPattern.ui-button:focus,
+.patternChooserDialog button.ui-button:focus{
+  outline: 2px solid #FFCD4D;
+  outline-offset: 2px;
+}

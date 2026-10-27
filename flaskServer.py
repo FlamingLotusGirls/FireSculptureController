@@ -37,11 +37,15 @@ class ServerSentEvent:
 		return f'data: {self.data}\n\n'
 
 
-def sendNewOutputState(whatChanged: str) -> None:
-	data = json.dumps({whatChanged: app.messenger.getMessages(whatChanged)})
+def broadcastEvent(event: dict) -> None:
+	data = json.dumps(event)
 	with streamLock:
 		for stream in serverSentEventStreams:
 			stream.put(data)
+
+
+def sendNewOutputState(whatChanged: str) -> None:
+	broadcastEvent({whatChanged: app.messenger.getMessages(whatChanged)})
 
 
 def bindOutputStreams() -> None:
@@ -56,6 +60,9 @@ def executeCommand(command):
 	result = sculpture.doCommand(command)
 	if command[0] == 'loadSculpture':
 		bindOutputStreams()
+	# Manual output pulses already have their own lightweight outputChanged event.
+	if command[0] != 'setItemState':
+		broadcastEvent({'stateChanged': True})
 	return result
 
 

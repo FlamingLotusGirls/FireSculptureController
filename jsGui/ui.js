@@ -4,6 +4,7 @@ var settings = {
 var allSculptureData = false;
 var currentView = {'activeTab' : false, 'activeModule' : false, activeSections : {}, sculptureIsLoaded:false}
 var serverSentEventStream = false;
+var stateRefresh = {pending: false, timer: null, inFlight: false, pointers: {}};
 
 
 function convertRGBTupleToRGBString(tuple) {
@@ -12,6 +13,9 @@ function convertRGBTupleToRGBString(tuple) {
 
 
 function handleDataStreamEvent(data){
+	if (data.stateChanged){
+		reloadData();
+	}
 	if (data.log){
 		$.each(data.log, function(logIndex, logItem){
 			$('#logDiv').prepend(logItem + '<br>');
@@ -271,8 +275,25 @@ function showInputParamsForm(){
 
 
 function doInit(){
+	var pressEvents = window.PointerEvent ? 'pointerdown' : 'mousedown touchstart';
+	var releaseEvents = window.PointerEvent ? 'pointerup pointercancel' : 'mouseup touchend touchcancel';
+	$(document).on(pressEvents, function(event){
+		stateRefresh.pointers[event.originalEvent.pointerId || 'pointer'] = true;
+	}).on(releaseEvents, function(event){
+		delete stateRefresh.pointers[event.originalEvent.pointerId || 'pointer'];
+		scheduleStateRefresh();
+	}).on('focusout dialogclose', function(){
+		// Let the blur/close handler finish before deciding whether redraw is safe.
+		setTimeout(scheduleStateRefresh, 0);
+	});
+	$(window).on('blur', function(){
+		stateRefresh.pointers = {};
+		scheduleStateRefresh();
+	});
 	reloadData();
 	serverSentEventStream = new EventSource('/dataStream');
+	// Events missed during a disconnect are recovered from the current snapshot.
+	serverSentEventStream.onopen = reloadData;
 	serverSentEventStream.onmessage = function (event) {
 		handleDataStreamEvent(JSON.parse(event.data));
 	};
@@ -284,24 +305,65 @@ function doInit(){
 
 function setCurrentModuleView(moduleId){
 	currentView.activeModule = moduleId;
-	if (currentView.activeSections[moduleId]){
-		$('#' + currentView.activeSections[moduleId] + '_heading').click();
+	var heading = $('#' + currentView.activeSections[moduleId] + '_heading');
+	var moduleData = allSculptureData.modules && allSculptureData.modules[moduleId];
+	if (heading.length){
+		heading.click();
 	}
-	else if (allSculptureData.modules[moduleId].inputs){
+	else if (moduleData && moduleData.inputs){
 		hideAllInputs();
 		$('#inputs').detach().appendTo('#' + moduleId + '_inputs');
-		$.each(allSculptureData.modules[moduleId].inputs, function(inputChannelId, inputData){
+		$.each(moduleData.inputs, function(inputChannelId, inputData){
 			showInput(moduleId + '_mainInput', inputData, inputChannelId);
 		});
+	}
+	else {
+		delete currentView.activeSections[moduleId];
 	}
 }
 
 function reloadData(){
+	stateRefresh.pending = true;
+	scheduleStateRefresh();
+}
+
+function stateRefreshBlocked(){
+	return !$.isEmptyObject(stateRefresh.pointers)
+		|| $('#dialog').is('.ui-dialog-content:visible')
+		|| $(document.activeElement).is('textarea, input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit])');
+}
+
+function scheduleStateRefresh(){
+	if (!stateRefresh.pending || stateRefresh.timer || stateRefresh.inFlight || stateRefreshBlocked()) return;
+	stateRefresh.timer = setTimeout(fetchState, 100);
+}
+
+function fetchState(){
+	stateRefresh.timer = null;
+	if (stateRefreshBlocked()) return;
+	stateRefresh.pending = false;
+	stateRefresh.inFlight = true;
 	$.ajax(settings.serverUrl + 'getData', {
-		dataType: 'json'
+		dataType: 'json',
+		cache: false
 	}).done(function(result) {
-		allSculptureData = result
+		if (stateRefreshBlocked()){
+			stateRefresh.pending = true;
+			return;
+		}
+		if (allSculptureData && allSculptureData.sculptureId != result.sculptureId){
+			currentView = {activeTab: false, activeModule: false, activeSections: {}, sculptureIsLoaded: false};
+		}
+		else {
+			currentView.sculptureIsLoaded = !!(allSculptureData && allSculptureData.sculptureId);
+		}
+		allSculptureData = result;
 		buildAll();
+	}).fail(function(){
+		$('<div>').text('Could not refresh controller state.').prependTo('#logDiv');
+	}).always(function(){
+		stateRefresh.inFlight = false;
+		scheduleStateRefresh();
 	});
 }
 
@@ -332,8 +394,8 @@ function buildAll(){
 			}
 		});
 		$( ".accordion" ).accordion({
-			collabsible : true,
-			active : 'none'
+			collapsible : true,
+			active : false
 		});
 		if (currentView.activeModule){
 			$('#sculptureControl').tabs({ active : $("#sculptureControl>div").index($("#" + currentView.activeModule + '_module')) });
@@ -348,7 +410,8 @@ function buildAll(){
 			doCommand(['removeGlobalInput', parseInt(this.id.split('_')[1])]);
 		});
 		$('.removePatternButton').button().click(function(){
-			parts = this.id.split('_');
+			$(this).button('disable');
+			var parts = this.id.split('_');
 			doCommand(['removePattern', parts[0], parts[1]]);
 		});
 		$('#safeButtonDiv').buttonset();
@@ -463,7 +526,7 @@ function buildLEDsModule(moduleData){
 	// Then, render the data.
 	$('#' + moduleId + '_module').html(
 		$('#ledModuleTemplate').render(templateModuleData));
-	$('#' + moduleId + '_patternChoices').menu();
+	initPatternChooser(moduleId);
 	$('#' + moduleId + '_removePatternButton').button().click(function(e){
 		patternId = $('#' + moduleId + '_patternSelection').val();
 		if (patternId && patternId != 'none'){
@@ -524,7 +587,7 @@ function buildPooferModule(moduleData){
 		templateModuleData.rows.push(templateRowData);
 	});
 	$('#' + moduleId + '_module').html($('#pooferModuleTemplate').render(templateModuleData));
-	$('#' + moduleId + '_patternChoices').menu();
+	initPatternChooser(moduleId);
 	$('#' + moduleId + '_removePatternButton').button().click(function(e){
 		patternId = $('#' + moduleId + '_patternSelection').val();
 		if (patternId && patternId != 'none'){
@@ -695,7 +758,7 @@ function showPatternDetails(moduleId, patternInstanceId){
 
 }
 function doCommand(command){
-	commandStr = JSON.stringify(command)
+	var commandStr = JSON.stringify(command);
 	$('#logDiv').prepend('Command sent:' + commandStr + '<br>');
 	$.ajax(settings.serverUrl + 'doCommand', {
 		data : commandStr,
@@ -704,6 +767,10 @@ function doCommand(command){
 		dataType: 'json',
 	}).done(function(result) {
 		handleCommandResult(result);
+	}).fail(function(response){
+		var detail = response.responseJSON && response.responseJSON.error;
+		$('<div>').text('Command failed: ' + command[0] + (detail ? ' — ' + detail : '')).prependTo('#logDiv');
+		reloadData();
 	});
 }
 function handleCommandResult(result){
@@ -719,6 +786,57 @@ function handleCommandResult(result){
 	}
 
 }
+function initPatternChooser(moduleId){
+	var chooser = $('#' + moduleId + '_patternChoices');
+	if (!/(?:^|[?&])display=touch(?:&|$)/.test(window.location.search)){
+		chooser.menu();
+		return;
+	}
+	// Cog's DRM backend does not provide a native select popup.
+	var button = $('<button type="button" class="addPattern">')
+		.attr('id', chooser.attr('id'))
+		.attr('aria-haspopup', 'dialog')
+		.text('Add Pattern');
+	chooser.replaceWith(button);
+	button.button().click(function(){
+		showAddPatternDialog(moduleId);
+	});
+}
+
+function showAddPatternDialog(moduleId){
+	var moduleData = allSculptureData.modules[moduleId];
+	var dialog = $('#dialog').empty();
+	var submitted = false;
+	var names = moduleData.availablePatternNames || [];
+	if (!names.length){
+		$('<p>').text('No patterns available.').appendTo(dialog);
+	}
+	$.each(names, function(index, patternName){
+		$('<button type="button" class="patternChoice">')
+			.text(patternName).appendTo(dialog).button().click(function(){
+				if (submitted) return;
+				submitted = true;
+				dialog.dialog('close');
+				doCommand(['addPattern', moduleId, patternName]);
+			});
+	});
+	dialog.dialog({
+		title: 'Add Pattern: ' + moduleData.name,
+		dialogClass: 'patternChooserDialog',
+		modal: true,
+		draggable: false,
+		resizable: false,
+		width: Math.min(360, $(window).width() - 24),
+		maxHeight: $(window).height() - 24,
+		buttons: {
+			Cancel: function(){ $(this).dialog('close'); }
+		},
+		close: function(){
+			$(this).empty().dialog('destroy');
+		}
+	});
+}
+
 function addPattern(moduleId){
 	inputId = '#' + moduleId + '_patternChoices';
 	if ($(inputId).val() != 'none'){
