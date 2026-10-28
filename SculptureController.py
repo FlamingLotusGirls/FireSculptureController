@@ -7,6 +7,7 @@ from ProgramModules.Types import SculptureConfig
 import inspect
 import json
 import logging
+import os
 from copy import deepcopy
 from pathlib import Path
 
@@ -15,6 +16,8 @@ from ProgramModules.InputManager import InputManager
 from ProgramModules import SculptureModules
 from ProgramModules.Runtime import callbackContext, synchronized
 from ProgramModules.Timers import Timer
+from ProgramModules.SettingsStore import SettingsStore
+from ProgramModules.SerialPorts import discoverSerialPorts
 import ProgramModules.sharedObjects as app
 import Inputs
 
@@ -29,6 +32,8 @@ class SculptureController:
 	@synchronized
 	def __init__(self) -> None:
 		root = Path(__file__).resolve().parent
+		self.settingsStore = SettingsStore(Path(os.environ.get('FIRESCULPTURE_STATE_DIR', str(root / 'state'))))
+		self.settingsError: str | None = None
 		self.sculptureDefinitions: dict[str, SculptureConfig] = {}
 		self.sculptureModules: dict[str, SculptureModule] = {}
 		self.globalInputs: dict[int, Input] = {}
@@ -109,9 +114,21 @@ class SculptureController:
 		if self.stopped:
 			raise ControllerStopped('Controller has stopped')
 		config = deepcopy(self.sculptureDefinitions[sculptureId])
+		self.settingsError = None
+		try:
+			settings = self.settingsStore.load(sculptureId)
+		except (OSError, ValueError) as error:
+			settings = None
+			self.settingsError = 'Could not load saved settings: ' + str(error)
+			logger.error(self.settingsError)
+		if settings:
+			for adaptorId, saved in settings['adaptors'].items():
+				if adaptorId in config['adaptors']:
+					config['adaptors'][adaptorId].update(saved)
 		self._reset()
 		self.sculptureConfig = config
-		try:
+
+		def buildModules():
 			self.dataChannelManager = DataChannelManager(config)
 			app.dataChannelManager = self.dataChannelManager
 			self.inputManager = InputManager()
@@ -122,6 +139,19 @@ class SculptureController:
 				moduleConfig['moduleId'] = moduleId
 				moduleClass = getattr(SculptureModules, moduleConfig['moduleType'] + 'Module')
 				self.sculptureModules[moduleId] = moduleClass(moduleConfig)
+
+		try:
+			buildModules()
+			if settings:
+				try:
+					self._restoreSettings(settings)
+				except (KeyError, ValueError, TypeError, IndexError, AttributeError) as error:
+					# A removed pattern/input type must not leave a half-restored engine.
+					self.settingsError = 'Could not restore saved patterns/inputs: ' + str(error)
+					logger.error(self.settingsError)
+					self._reset()
+					self.sculptureConfig = config
+					buildModules()
 		except Exception:
 			self._reset()
 			raise
@@ -142,9 +172,86 @@ class SculptureController:
 		functionName = command[0]
 		if functionName in self.methodList:
 			# Method names and argument lists come from GUI commands.
-			return getattr(self, functionName)(*command[1:])
-		moduleId = command.pop(1)
-		return self.sculptureModules[moduleId].doCommand(command)
+			result = getattr(self, functionName)(*command[1:])
+		else:
+			moduleId = command.pop(1)
+			result = self.sculptureModules[moduleId].doCommand(command)
+		if functionName in {'updateSerialConnection', 'addPattern', 'removePattern',
+			'toggleRowSelection', 'toggleEnable', 'reassignPatternInput',
+			'reassignPatternInputToNew', 'reassignModuleInput', 'reassignModuleInputToNew',
+			'addGlobalInput', 'removeGlobalInput', 'setInputValue'}:
+			self._saveSettings()
+		return result
+
+	def _saveSettings(self) -> None:
+		if not self.sculptureConfig:
+			return
+		manager = cast(InputManager, self.inputManager)
+		settings: dict = {'version': 1, 'adaptors': {}, 'modules': {}, 'inputs': {},
+			'globalInputs': list(self.globalInputs)}
+		for adaptorId, adaptor in cast(DataChannelManager, self.dataChannelManager).getCurrentStateData().items():
+			settings['adaptors'][adaptorId] = {key: deepcopy(adaptor[key])
+				for key in ('ports', 'baudrate', 'identity') if key in adaptor}
+		for inputId, inputObj in manager.inputInstances.items():
+			settings['inputs'][inputId] = {'params': manager.inputDefinitions[inputId],
+				'values': [param['currentValue'] if param['type'] != 'pulse' else None
+					for param in inputObj.getCurrentStateData()['inParams']]}
+		for moduleId, module in self.sculptureModules.items():
+			if isinstance(module, SculptureModules.GridPatternModule):
+				settings['modules'][moduleId] = {'enabledStatus': module.enabledStatus, 'patterns': [
+					{'type': module.patternTypes[patternId], 'rowSettings': module.patternRowSettings[patternId],
+					 'inputs': pattern.getCurrentStateData()['inputs'], 'state': pattern.getPersistentState()}
+					for patternId, pattern in module.patterns.items()]}
+			elif isinstance(module, SculptureModules.InputOnlyModule):
+				settings['modules'][moduleId] = {'inputs': module.inputs.getCurrentStateData()}
+		try:
+			self.settingsStore.save(self.currentSculptureId, settings)
+		except OSError as error:
+			self.settingsError = 'Changes are active but could not be saved: ' + str(error)
+			logger.error(self.settingsError)
+		else:
+			self.settingsError = None
+
+	def _restoreSettings(self, settings: dict) -> None:
+		manager = cast(InputManager, self.inputManager)
+		inputIds = {}
+		for savedId, saved in settings['inputs'].items():
+			inputId = manager.createNewInput(saved['params'])
+			if inputId is False:
+				raise ValueError('Saved input type is unavailable')
+			inputIds[str(savedId)] = inputId
+			# Restore switches after installing bindings, so their change callbacks run.
+			inputObj = manager.getInputObj(inputId)
+			for index, param in enumerate(inputObj.getCurrentStateData()['inParams']):
+				if param['type'] == 'toggle':
+					inputObj.setInputValue(False, index)
+		for savedId in settings['globalInputs']:
+			inputId = inputIds[str(savedId)]
+			self.globalInputs[inputId] = manager.registerAndGetInput('main', inputId)
+
+		def rebind(collection, assignments):
+			for channel, assignment in assignments.items():
+				collection.reassignInput(channel, inputIds[str(assignment['inputInstanceId'])], assignment['outParamIndex'])
+
+		for moduleId, saved in settings['modules'].items():
+			module = self.sculptureModules.get(moduleId)
+			if isinstance(module, SculptureModules.GridPatternModule):
+				if 'enabledStatus' in saved and [len(row) for row in saved['enabledStatus']] == [len(row) for row in module.enabledStatus]:
+					module.enabledStatus = deepcopy(saved['enabledStatus'])
+				for patternSettings in saved.get('patterns', []):
+					patternId = module.addPattern(patternSettings['type'])
+					pattern = module.patterns[patternId]
+					if len(patternSettings['rowSettings']) == module.gridSize[0]:
+						module.patternRowSettings[patternId] = list(patternSettings['rowSettings'])
+					rebind(pattern.inputs, patternSettings['inputs'])
+					pattern.restorePersistentState(patternSettings.get('state', {}))
+			elif isinstance(module, SculptureModules.InputOnlyModule):
+				rebind(module.inputs, saved['inputs'])
+		for savedId, saved in settings['inputs'].items():
+			inputObj = manager.getInputObj(inputIds[str(savedId)])
+			for index, value in enumerate(saved['values']):
+				if value is not None:
+					inputObj.setInputValue(value, index)
 
 	@synchronized
 	def getCurrentStateData(self):
@@ -160,8 +267,27 @@ class SculptureController:
 			data = {'sculptures': self.sculptureDefinitions}
 		data['globalInputs'] = list(self.globalInputs)
 		data['availableGlobalInputs'] = self.availableGlobalInputs
+		data['settingsError'] = self.settingsError
 		# JSON encoding happens after releasing the lock; return an independent snapshot.
 		return deepcopy(data)
+
+	@synchronized
+	def getSerialPorts(self):
+		try:
+			return {'ports': discoverSerialPorts(), 'error': None}
+		except OSError as error:
+			return {'ports': [], 'error': 'Could not list serial ports: ' + str(error)}
+
+	@synchronized
+	def getConnectionStatus(self):
+		connections = []
+		if self.sculptureConfig and self.dataChannelManager:
+			for adaptorId, adaptor in self.dataChannelManager.getCurrentStateData().items():
+				modules = [module['name'] for module in self.sculptureConfig['modules'].values()
+					if module['adaptor'] == adaptorId]
+				connections.append(dict(adaptor, adaptorId=adaptorId, modules=modules))
+		return {'connections': connections, 'safeMode': app.safeMode.isSet(),
+			'settingsError': self.settingsError}
 
 	@synchronized
 	def addGlobalInput(self, inputParams) -> None:

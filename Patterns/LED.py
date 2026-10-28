@@ -452,6 +452,13 @@ class FromImage(PatternBase):
 		if self.inputs.updateButton:
 			self.requestUpdate()
 
+	def getPersistentState(self) -> dict:
+		return {'imageId': self._current_image_id}
+
+	def restorePersistentState(self, state: dict) -> None:
+		if state.get('imageId') in self.supported_images:
+			self._current_image_id = state['imageId']
+
 	def getState(self, row: int, col: int) -> str:
 		"""Return state of the LED at [row,col]."""
 		return self._current_image_id

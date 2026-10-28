@@ -9,6 +9,12 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.fixture(autouse=True)
+def isolated_saved_settings(monkeypatch, tmp_path):
+    # Subprocess harnesses inherit this too; never overwrite the operator's settings.
+    monkeypatch.setenv('FIRESCULPTURE_STATE_DIR', str(tmp_path / 'settings'))
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--hardware-serial-port", metavar="PORT",

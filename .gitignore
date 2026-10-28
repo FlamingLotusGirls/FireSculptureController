@@ -10,3 +10,4 @@ __pycache__/*
 artifacts/
 jsGui/kiosk-input.json
 jsGui/kiosk-input.tmp
+state/

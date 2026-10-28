@@ -5,6 +5,7 @@ from typing import Literal, TypedDict, cast
 from .Interfaces import Input, InputOwner
 
 import logging
+from copy import deepcopy
 
 from ProgramModules import utils
 import ProgramModules.sharedObjects as app
@@ -22,6 +23,7 @@ class InputManager():
 	def __init__(self) -> None:
 		self.nextInputInstanceId = 1
 		self.inputInstances: dict[int, Input] = {}
+		self.inputDefinitions: dict[int, dict] = {}
 		self.inputInstanceUses: dict[int, list[list[str | Literal[False]]]] = {}
 		self.availableInputTypes: dict = {}
 		for inputType in Inputs.availableInputTypes:
@@ -56,6 +58,7 @@ class InputManager():
 		return InputCollection(parentObj, inputDict, inputParams)
 
 	def createNewInput(self, params) -> int | Literal[False]:
+		definition = deepcopy(params)
 		newInputInstanceId = self.nextInputInstanceId
 		self.nextInputInstanceId += 1
 		inputTypeKey = ' '.join([params['subType'], params['type']]).strip()
@@ -70,6 +73,7 @@ class InputManager():
 		# Configured class names are dynamic; the supported classes are checked in Inputs.
 		inputClass = getattr(Inputs, inputClassName)
 		self.inputInstances[newInputInstanceId] = inputClass(params, newInputInstanceId)
+		self.inputDefinitions[newInputInstanceId] = definition
 		return newInputInstanceId
 
 	def registerAndGetInput(self, userId: str, inputInstanceId: int, inputChannelId: str | Literal[False] = False) -> Input:
@@ -90,6 +94,7 @@ class InputManager():
 				if inputInstanceId in self.inputInstances.keys():
 					self.inputInstances[inputInstanceId].stop()
 					del self.inputInstances[inputInstanceId]
+					self.inputDefinitions.pop(inputInstanceId, None)
 
 		if not inputInstanceId:
 			for inputInstanceId in self.inputInstanceUses:
@@ -118,6 +123,7 @@ class InputManager():
 		if errors:
 			raise RuntimeError('Input cleanup failed') from errors[0]
 		self.inputInstances.clear()
+		self.inputDefinitions.clear()
 		self.inputInstanceUses.clear()
 
 class InputCollection(object): #a package of all the inputs used by a module or pattern instance

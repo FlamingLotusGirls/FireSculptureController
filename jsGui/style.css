@@ -1,3 +1,33 @@
+.serialAdaptorRow{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+}
+.serialPortSelect, .serialPortTouchChoices{
+  max-width: 100%;
+  min-height: 36px;
+  overflow-wrap: anywhere;
+}
+.serialConnectionSummary{
+  flex-basis: 100%;
+}
+#connectionStatus, #settingsStatus{
+  padding: 8px;
+  overflow-wrap: anywhere;
+}
+#connectionStatus > div{
+  margin-bottom: 4px;
+}
+#settingsStatus:empty{
+  display: none;
+}
+.connectionWarning{
+  color: #fff;
+  background: #8b251c;
+  border: 2px solid #ffb347;
+}
 body{
   font-family: Segoe UI,Helvetica,Arial,sans-serif;
 	height: 100%;

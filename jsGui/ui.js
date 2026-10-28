@@ -5,6 +5,10 @@ var allSculptureData = false;
 var currentView = {'activeTab' : false, 'activeModule' : false, activeSections : {}, sculptureIsLoaded:false}
 var serverSentEventStream = false;
 var stateRefresh = {pending: false, timer: null, inFlight: false, pointers: {}};
+var serialPortOptions = [];
+var connectionStatusInFlight = false;
+var lastConnectionStatus = '';
+var connectionErrors = {};
 var isTouchDisplay = /(?:^|[?&])display=touch(?:&|$)/.test(window.location.search);
 if (isTouchDisplay){
 	document.documentElement.classList.add('touch-display');
@@ -352,6 +356,7 @@ function doInit(){
 	serverSentEventStream.onerror = function () {
 		$('#logDiv').prepend('<span style="font-weight:bold; font-color:FFCD4D">Connection error</span><br>');
 	};
+	setInterval(refreshConnectionStatus, 2000);
 
 }
 
@@ -481,10 +486,22 @@ function buildAll(){
 			doCommand(JSON.parse($('#sendDirectCommandInput').val()));
 			$('#sendDirectCommandInput').val('')
 		});
-		$('.serialAdaptorUpdateButton').button().click(function(){
-			adaptorId = this.id.split('_')[0];
-			doCommand(['updateSerialConnection', adaptorId, {'ports' : $('#' + adaptorId + 'Ports').val().split(' '), 'baudrate' : $('#' + adaptorId + 'Baudrate').val()}]);
+		$('.serialPortSelect').change(function(){
+			var adaptorId = $(this).closest('.serialAdaptorRow').attr('data-adaptor-id');
+			if (this.value) doCommand(['updateSerialConnection', adaptorId, {ports: JSON.parse(this.value)}]);
 		});
+		$('.serialAdaptorRow input').change(function(){
+			var adaptorId = $(this).closest('.serialAdaptorRow').attr('data-adaptor-id');
+			var baudrate = Number(this.value);
+			if (baudrate > 0 && baudrate % 1 == 0){
+				doCommand(['updateSerialConnection', adaptorId, {baudrate: baudrate}]);
+			}
+			else { reloadData(); }
+		});
+		$('#refreshSerialPortsButton').button().click(refreshSerialPorts);
+		populateSerialPorts();
+		refreshSerialPorts();
+		refreshConnectionStatus();
 		if (currentView.activeModule){
 			setCurrentModuleView(currentView.activeModule);
 		}
@@ -502,6 +519,109 @@ function buildAll(){
 	$('#mainDiv').css('height', $(window).height() * 0.88 + 'px');
 }
 
+
+function refreshSerialPorts(){
+	$.ajax(settings.serverUrl + 'serialPorts', {dataType: 'json', cache: false}).done(function(result){
+		serialPortOptions = result.ports;
+		$('#serialPortDiscoveryStatus').text(result.error || (result.ports.length ? '' : 'No serial adapters detected.'));
+		populateSerialPorts();
+	}).fail(function(){
+		$('#serialPortDiscoveryStatus').text('Could not refresh serial adapters.');
+	});
+}
+
+function populateSerialPorts(){
+	if (!allSculptureData || !allSculptureData.adaptors) return;
+	$('.serialPortTouchChoices').remove();
+	$('.serialPortSelect').each(function(){
+		var select = $(this);
+		var adaptorId = select.closest('.serialAdaptorRow').attr('data-adaptor-id');
+		var adaptor = allSculptureData.adaptors[adaptorId];
+		var selected = JSON.stringify(adaptor.ports);
+		select.empty();
+		$('<option>').val('').text('Select USB adapter').appendTo(select);
+		var found = false;
+		$.each(serialPortOptions, function(index, port){
+			var matches = $.inArray(port.port, adaptor.ports) >= 0 || $.inArray(port.device, adaptor.ports) >= 0;
+			if (adaptor.identity && port.identity){
+				matches = matches || (adaptor.identity.serialNumber == port.identity.serialNumber
+					&& adaptor.identity.vid == port.identity.vid && adaptor.identity.pid == port.identity.pid
+					&& adaptor.identity.interface == port.identity.interface);
+			}
+			var value = JSON.stringify([port.port]);
+			$('<option>').val(value).text(port.label).appendTo(select);
+			if (matches){ selected = value; found = true; }
+		});
+		if (!found && adaptor.ports.length){
+			$('<option>').val(selected).text('Saved device (not detected): ' + adaptor.ports.join(' ')).appendTo(select);
+		}
+		select.val(selected);
+		if (isTouchDisplay){
+			// Cog's DRM backend cannot display native select popups.
+			select.hide().attr('aria-hidden', 'true');
+			var button = $('<button type="button" class="serialPortTouchChoices">')
+				.text(select.find('option:selected').text()).insertAfter(select).button();
+			button.click(function(){
+				var choices = $('<div class="inputSelectorChoices">');
+				select.find('option').each(function(){
+					var option = this;
+					if (!option.value) return;
+					$('<button type="button" class="inputSelectorChoice">').text(option.text)
+						.appendTo(choices).button().click(function(){
+							select.val(option.value).trigger('change');
+							button.text(option.text);
+							$('#dialog').dialog('close');
+						});
+				});
+				$('#dialog').empty().append(choices).dialog({title: 'USB adapter', modal: true,
+					width: Math.min(620, $(window).width() - 24),
+					maxHeight: $(window).height() - 24,
+					buttons: {Cancel: function(){ $(this).dialog('close'); }},
+					close: function(){ $(this).empty().dialog('destroy'); }});
+			});
+		}
+	});
+}
+
+function refreshConnectionStatus(){
+	if (connectionStatusInFlight || !$('#connectionStatus').length) return;
+	connectionStatusInFlight = true;
+	$.ajax(settings.serverUrl + 'connectionStatus', {dataType: 'json', cache: false}).done(function(result){
+		var signature = JSON.stringify(result);
+		if (signature == lastConnectionStatus && $('#connectionStatus').children().length) return;
+		lastConnectionStatus = signature;
+		var panel = $('#connectionStatus').empty().removeClass('connectionWarning');
+		$.each(result.connections, function(index, connection){
+			var text;
+			var missing = connection.modules.length && !connection.connected;
+			if (!connection.modules.length){ text = 'Unused by this sculpture'; }
+			else if (!connection.connected){ text = 'Disconnected — output blocked'; }
+			else if (connection.deliveryPending){ text = 'Output pending'; }
+			else { text = 'Port connected'; }
+			$('#' + connection.adaptorId + 'Connection').text(text);
+			if (!connection.modules.length) return;
+			var row = $('<div>').appendTo(panel);
+			$('<strong>').text(connection.adaptorId + ': ' + text).appendTo(row);
+			if (missing){
+				var detail = connection.lastError || connection.writerError || connection.ports.join(' ');
+				row.attr('title', detail);
+				if (connectionErrors[connection.adaptorId] != detail){
+					$('<div>').text(connection.adaptorId + ': ' + detail).prependTo('#logDiv');
+					connectionErrors[connection.adaptorId] = detail;
+				}
+				if (!result.safeMode){ panel.addClass('connectionWarning'); }
+			}
+			else {
+				delete connectionErrors[connection.adaptorId];
+				if (connection.writerError) row.attr('title', connection.writerError);
+			}
+		});
+		$('#settingsStatus').text(result.settingsError || '').toggleClass('connectionWarning', !!result.settingsError);
+	}).fail(function(){
+		$('#connectionStatus').text('Hardware status unavailable — cannot reach controller.').addClass('connectionWarning');
+		lastConnectionStatus = '';
+	}).always(function(){ connectionStatusInFlight = false; });
+}
 
 function makeSculptureControllerTemplateData(){
 	data = {"sculptureName" : allSculptureData.sculptureName, "modules" : [], "inputs" : [], "globalInputs" : [], "serialAdaptors" : []};
@@ -815,14 +935,19 @@ function showPatternDetails(moduleId, patternInstanceId){
 }
 function doCommand(command){
 	var commandStr = JSON.stringify(command);
-	$('#logDiv').prepend('Command sent:' + commandStr + '<br>');
+	$('<div>').text('Request submitted: ' + commandStr).prependTo('#logDiv');
 	$.ajax(settings.serverUrl + 'doCommand', {
 		data : commandStr,
 		contentType : 'application/json',
 		type : 'POST',
 		dataType: 'json',
 	}).done(function(result) {
+		$('<div>').text('Controller accepted: ' + result.command).prependTo('#logDiv');
+		if (result.settingsError){
+			$('#settingsStatus').text(result.settingsError).addClass('connectionWarning');
+		}
 		handleCommandResult(result);
+		refreshConnectionStatus();
 	}).fail(function(response){
 		var detail = response.responseJSON && response.responseJSON.error;
 		$('<div>').text('Command failed: ' + command[0] + (detail ? ' — ' + detail : '')).prependTo('#logDiv');

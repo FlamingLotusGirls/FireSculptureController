@@ -82,6 +82,16 @@ def getData() -> Response:
 	return jsonify(sculpture.getCurrentStateData())
 
 
+@flaskApp.route('/serialPorts')
+def serialPorts() -> Response:
+	return jsonify(sculpture.getSerialPorts())
+
+
+@flaskApp.route('/connectionStatus')
+def connectionStatus() -> Response:
+	return jsonify(sculpture.getConnectionStatus())
+
+
 @flaskApp.route('/doCommand', methods=['POST'])
 def doCommand() -> Response:
 	command = request.get_json(force=True)
@@ -91,7 +101,8 @@ def doCommand() -> Response:
 		result = executeCommand(command)
 	except ControllerStopped:
 		abort(503)
-	return jsonify({'command': command[0], 'result': result})
+	return jsonify({'command': command[0], 'result': result,
+		'settingsError': sculpture.settingsError})
 
 
 @flaskApp.errorhandler(500)

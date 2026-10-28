@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 from serial.serialutil import SerialBase
 from .Types import AdaptorConfig, AdaptorUpdate
+from .SerialPorts import resolveSerialIdentity, settingsForPort
 
 import logging
 from threading import RLock
@@ -48,7 +49,14 @@ class SerialAdaptor:
 			if self.stopped:
 				return False
 			self._closeConnection()
-			for port in self.configData['ports']:
+			ports = self.configData['ports']
+			if self.configData.get('identity'):
+				try:
+					ports = [resolveSerialIdentity(cast(dict, self.configData['identity']))]
+				except OSError as error:
+					self.lastError = str(error)
+					return False
+			for port in ports:
 				try:
 					self.connection = serial.serial_for_url(
 						port, cast(int, self.configData['baudrate']), timeout=0.1,
@@ -57,6 +65,7 @@ class SerialAdaptor:
 					self.lastError = str(error)
 					logger.warning('%s cannot connect to %s: %s', self.configData['adaptorId'], port, error)
 				else:
+					self.configData['ports'] = [port] if self.configData.get('identity') else self.configData['ports']
 					self.lastError = None
 					logger.info('%s connected to %s at %s baud', self.configData['adaptorId'], port, self.configData['baudrate'])
 					return True
@@ -64,6 +73,15 @@ class SerialAdaptor:
 
 	def updateSerialConnection(self, data: AdaptorUpdate) -> bool:
 		with self.lock:
+			data = cast(AdaptorUpdate, dict(data))
+			if 'ports' in data:
+				# Derive hardware identity on the controller, not in the browser.
+				data['identity'] = None
+				if len(data['ports']) == 1:
+					try:
+						data.update(settingsForPort(data['ports'][0]))
+					except OSError:
+						pass  # Explicit paths still work if enumeration is unavailable.
 			config = utils.extendSettings(self.configData, data)
 			config['baudrate'] = int(config['baudrate'])
 			self.configData = config

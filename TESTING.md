@@ -24,6 +24,27 @@ tests skip unless `--hardware-serial-port` is supplied explicitly.
 | `tests/test_osc.py` | Actual UDP pulse/toggle/value routing, GUI address lists, bundles/timetags, pulse auto-OFF, cancellation, self-stop, and socket reuse. |
 | `tests/test_lifecycle.py` | All sculptures and listed patterns, Chase spacing/reverse, pattern removal, timers, reload, partial initialization, HTTP commands, SSE, and consistent state snapshots. |
 | `tests/test_shutdown.py` | Headless boot, SIGINT/SIGTERM shutdown, startup/worker failure, no writes during safe mode, and joined workers in isolated processes. Linux receives actual process signals; Windows invokes the registered handlers internally. |
+| `tests/test_settings.py` | Per-sculpture USB/pattern persistence across new controllers, shared inputs, removals, image selection, safe startup without replaying pulses, atomic write failure, corrupt JSON, and asynchronous writer-error reporting. |
+| `tests/test_ports.py` | Linux by-id links and macOS/Windows metadata fixtures, renumbering, missing/duplicate identities, read-only discovery, and no fallback to an unrelated adapter. |
+
+`tests/helpers/check_settings_gui.py` runs the UI in headless Cog for both desktop and
+touchscreen modes. Its isolated Flask server simulates USB devices and redirects all
+serial opens to loopback; it never contacts the live controller. It checks adapter
+selection, by-id labels, immediate saving, pattern restoration, Run warnings, error
+details, recovery, and the compact strip height. Run it with the app dependencies on
+an **absolute** `PYTHONPATH`, so child processes can find them from temporary directories:
+
+```sh
+PYTHONPATH="$PWD/artifacts/py3-deps" python3 tests/helpers/check_settings_gui.py
+```
+
+The October 28 settings update passed **76 tests**, with four optional hardware/Python 2
+checks skipped, plus mypy and both Cog browser modes. Linux discovery was checked on
+the Pi; macOS and Windows discovery used metadata fixtures, not physical machines.
+The reference comparison now exempts the intentionally updated application UI files
+(`index.htm`, `ui.js`, `style.css`); bundled libraries and frozen Python 2 files remain
+covered by their existing byte comparisons. Tests isolate saved settings in temporary
+directories, including subprocesses, to protect the operator's setup.
 
 Python 2 is optional for ordinary development. Tests find it via `PYTHON2`, `python2`
 on PATH, or `C:/Python27/python.exe`. Legacy dependencies come from `.deps-py2/` or

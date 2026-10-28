@@ -34,14 +34,23 @@ defaults to `8080`, and `--log-level DEBUG` enables detailed logging. Configurat
 GUI paths resolve relative to the source files, so launching by absolute script path
 works from another directory too. Keep the source tree and its assets together.
 
-Serial ports and mappings are in `sculptureDefinitions/*.json`. Set the port for your
-computer as described below, or use `loop://` for serial loopback without hardware.
+Default serial ports and mappings are in `sculptureDefinitions/*.json`. Choose your
+adapter in Main as described below, or configure `loop://` for loopback without hardware.
 Missing devices are logged while pending output is retried. OSC uses `python-osc` and
 defaults to `0.0.0.0:8000` when an OSC input is created.
 
 ## Serial port: one USB Serial adapter
 
-With one FTDI USB Serial adapter, check its port name and use that name directly:
+In **Main**, choose an adapter from the **USB adapter** dropdown. **Refresh ports**
+rescans devices without opening them. The touchscreen uses an in-page chooser.
+Discovery uses pySerial on Linux, macOS, and Windows; it does not shell out to `ls`.
+Linux choices prefer `/dev/serial/by-id/` links; macOS uses native `/dev/cu.*` names
+and Windows uses COM names. Hardware serial numbers are saved with the selection,
+so a uniquely identified adapter can be found after its port name changes. A missing
+saved adapter stays visible in the dropdown. Missing or duplicate serial numbers are
+labelled **port name only** and require rechecking assignments after reconnecting.
+
+For manual diagnosis:
 
 | Computer | How to check | Port string to use |
 | --- | --- | --- |
@@ -49,18 +58,37 @@ With one FTDI USB Serial adapter, check its port name and use that name directly
 | macOS | In Terminal, run `ls /dev/cu.*`. Look for the USB serial entry. | The full name, such as `/dev/cu.usbserial-A50285BI`. |
 | Windows | Open Device Manager and expand **Ports (COM & LPT)**. Find **USB Serial Port (COMn)**. | The COM name, such as `COM7`. |
 
-Enter the port string in the GUI's serial port field. To retain it after a restart,
-set the intended adaptor's `ports` entry in `sculptureDefinitions/<sculpture>.json`.
-For example, on the Pi:
+Manual defaults can still be set in the intended adaptor's `ports` entry in
+`sculptureDefinitions/<sculpture>.json`. For example, on the Pi:
 
 ```json
 "ports": ["/dev/ttyUSB0"]
 ```
 
-The Mac and Windows strings go in the same field. Copy the actual name from your
-computer; the strings above are examples. For multiple USB Serial adapters on Linux,
+Copy the actual name from your computer; the strings above are examples. For multiple USB Serial adapters on Linux,
 see [What if I have more than one USB Serial adapter? (Linux)](#what-if-i-have-more-than-one-usb-serial-adapter-linux)
 at the end.
+
+## Automatically saved settings
+
+USB selections, baud rate, pattern additions/removals, input parameters and bindings,
+global inputs, selected rows, and enabled outputs save immediately for each sculpture.
+They restore on sculpture reload and application restart. Momentary button presses,
+manual output pulses, and Run mode are not restored; startup still enters Safe Mode.
+
+Settings live in `state/<sculptureId>.json` beside the source tree, separately from the
+default sculpture definitions. Set `FIRESCULPTURE_STATE_DIR` to choose another directory.
+Writes use an atomic file replacement, and unchanged settings are not rewritten. A
+save failure is shown in the UI; changes remain active but are not promised to survive
+a restart. Back up the state directory to preserve your setup. With the controller
+stopped, removing a sculpture's state file returns it to its definition defaults.
+
+The compact status strip above the right-hand log reads the serial writer's connection,
+pending-delivery state, and last error every two seconds and after UI commands. In Run,
+a disconnected bus used by the sculpture is highlighted. Details appear in the log;
+unused buses do not generate Run warnings. “Controller accepted” means the request
+was processed, not that hardware received it. “Port connected” means the serial port
+is open, not that the sculpture acknowledged or acted on the output.
 
 ## Safe mode and shutdown
 
@@ -166,7 +194,8 @@ Copy the actual path listed for your USB Serial adapter. That path follows it if
 `/dev/ttyUSB` number changes. If serial numbers are missing or duplicated, use explicit
 port names and recheck the assignments when reconnecting.
 
-**3. Save each bus's assignment.** Set `flameBus.ports` and `ledBus.ports` separately in
-the sculpture JSON, using the path for each bus's USB Serial adapter. Do not put both
+**3. Save each bus's assignment.** Choose each bus's adapter separately in **Main**;
+the selection saves immediately. For default configuration, `flameBus.ports` and
+`ledBus.ports` can also be set in the sculpture JSON. Do not put both
 USB Serial adapters in each `ports` list: the list contains alternatives for one bus.
 Label the cables to match. If a USB Serial adapter is replaced, update its saved path.

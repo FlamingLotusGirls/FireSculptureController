@@ -1,6 +1,9 @@
 """Structural interfaces checked by mypy; implementations need not inherit from these."""
 from collections.abc import Callable, Iterator
-from typing import Protocol
+from typing import Protocol, TYPE_CHECKING
+
+if TYPE_CHECKING:
+	from .InputManager import InputCollection
 
 from .Types import (
 	AdaptorConfig, AdaptorUpdate, AddressKey, HardwareAddress, LogicalAddress,
@@ -49,10 +52,13 @@ class InputOwner(Protocol):
 
 
 class Pattern(Protocol):
+	inputs: 'InputCollection'
 	def getState(self, row: int, col: int) -> OutputValue: ...
 	def setUpdateFunction(self, function: Callable[[], None]) -> None: ...
 	def reassignInput(self, *args) -> None: ...
 	def getCurrentStateData(self): ...
+	def getPersistentState(self) -> dict: ...
+	def restorePersistentState(self, state: dict) -> None: ...
 	def stop(self) -> None: ...
 
 

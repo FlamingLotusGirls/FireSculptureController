@@ -37,6 +37,12 @@ class PatternBase():
 
 	def getCurrentStateData(self):
 		return({'name' : self.patternName, 'inputs' : self.inputs.getCurrentStateData()})
+
+	def getPersistentState(self) -> dict:
+		return {}
+
+	def restorePersistentState(self, state: dict) -> None:
+		pass
 	
 
 	def setUpdateFunction(self, function: Callable[[], None]) -> None:

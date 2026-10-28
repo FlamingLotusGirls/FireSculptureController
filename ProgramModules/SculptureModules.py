@@ -70,6 +70,7 @@ class GridPatternModule(SculptureModuleBase):
 		self.availablePatternClasses: dict[str, Callable[[list[int], str], Pattern]] = {}
 		self.availablePatternNames: list[str] = []
 		self.patterns: dict[str, Pattern] = {}
+		self.patternTypes: dict[str, str] = {}
 		self.patternRowSettings: dict[str, list[bool]] = {}
 		mapping = cast(list[list[HardwareAddress]], self.moduleConfig['protocol']['mapping'])
 		self.gridSize = [len(mapping), max([len(mapping[i]) for i in range(len(mapping))])]
@@ -101,6 +102,7 @@ class GridPatternModule(SculptureModuleBase):
 	def addPattern(self, patternTypeId: str) -> str: # make a pattern live and select all rows by default
 		newInstanceId = '%sPattern%s' % (self.moduleConfig['moduleId'], self.nextPatternInstanceId)
 		self.patterns[newInstanceId] = self.availablePatternClasses[patternTypeId](self.gridSize, newInstanceId)
+		self.patternTypes[newInstanceId] = patternTypeId
 		self.patternRowSettings[newInstanceId] = [True for i in range(self.gridSize[0])]
 		self.patterns[newInstanceId].setUpdateFunction(self.doUpdates)
 		self.nextPatternInstanceId += 1
@@ -112,6 +114,7 @@ class GridPatternModule(SculptureModuleBase):
 			return
 		self.patterns[patternInstanceId].stop()
 		del self.patterns[patternInstanceId]
+		del self.patternTypes[patternInstanceId]
 		del self.patternRowSettings[patternInstanceId]
 		self.doUpdates()
 
@@ -125,6 +128,7 @@ class GridPatternModule(SculptureModuleBase):
 		for patternInstanceId in self.patterns:
 			self.patterns[patternInstanceId].stop()
 		self.patterns = {}
+		self.patternTypes = {}
 		self.patternRowSettings = {}
 		SculptureModuleBase.stop(self)
 

@@ -35,12 +35,16 @@ def test_all_preserved_python2_files_retain_their_original_bytes():
         assert hashlib.sha256(data).hexdigest() == expected_hash, name
 
 
-def test_active_configuration_and_gui_match_except_serpent_pi_port():
+def test_active_configuration_and_bundled_gui_libraries_match_reference():
     manifest = read_json(REFERENCE / "snapshot.json")
     unchanged = [name for name in manifest
                  if name == "config.json" or name.startswith(("sculptureDefinitions/", "jsGui/"))]
     assert len(unchanged) == 47
     for name in unchanged:
+        # Application UI now includes touch controls, serial discovery/status,
+        # and autosave. Bundled libraries and the frozen tree stay byte-exact.
+        if name in {'jsGui/index.htm', 'jsGui/ui.js', 'jsGui/style.css'}:
+            continue
         current = (ROOT / name).read_bytes()
         original = (ROOT / "py2" / name).read_bytes()
         if name == "sculptureDefinitions/serpent.json":

@@ -48,14 +48,18 @@
       <div id="main_module">
         <div id="adaptors" style="margin:0px 0px 15px 0px" class="serialAdaptorInput ui-widget ui-widget-content ui-corner-all">
           {{for serialAdaptors}}
+          <div class="serialAdaptorRow" data-adaptor-id="{{>adaptorId}}">
             <span style="text-align:center; display:inline-block; width:100px; font-weight:bold" class="serialAdaptorInput ui-widget ui-widget-content ui-corner-all ui-state-active">{{>adaptorId}}</span>
             <label for="{{>adaptorId}}Baudrate" class="serialAdaptorInputLabel">Baudrate</label>
             <input id="{{>adaptorId}}Baudrate" inputmode="numeric" value="{{>baudrate}}" class="serialAdaptorInput ui-widget ui-widget-content ui-corner-all ui-state-active">
-            <label for="{{>adaptorId}}Ports" class="serialAdaptorInputLabel">Ports(separated by space)</label>
-            <input id="{{>adaptorId}}Ports" value="{{>ports}}" class="serialAdaptorInput ui-widget ui-widget-content ui-corner-all ui-state-active">
-            <button class="serialAdaptorUpdateButton" id="{{>adaptorId}}_UpdateButton">Change</button>
-            <br>
+            <label for="{{>adaptorId}}Ports" class="serialAdaptorInputLabel">USB adapter</label>
+            <select id="{{>adaptorId}}Ports" class="serialPortSelect ui-widget ui-widget-content ui-corner-all" aria-label="{{>adaptorId}} USB adapter"></select>
+            <span class="serialConnectionSummary" id="{{>adaptorId}}Connection"></span>
+          </div>
           {{/for}}
+          <button id="refreshSerialPortsButton" type="button">Refresh ports</button>
+          <span id="serialPortDiscoveryStatus" role="status"></span>
+          <p>USB and pattern changes save automatically for this sculpture.</p>
         </div>
         <button id="addGlobalInputButton">Add new input</button>
         <div id="globalInputs" class="accordion">
@@ -75,6 +79,8 @@
       {{/for}}
     </div>
     <div id="logDivOuter" style="float:left; width:25%; height:100%; padding:1px; margin:0px 0px 0px 10px;" class=" ui-widget ui-widget-content ui-corner-all">
+      <div id="connectionStatus" role="status" aria-live="polite">Checking hardware connections…</div>
+      <div id="settingsStatus" role="status" aria-live="polite"></div>
       <div>
         <input id="sendDirectCommandInput" class=" ui-widget ui-widget-content ui-corner-all"><button id="sendDirectCommandButton">Send</button>
       </div>

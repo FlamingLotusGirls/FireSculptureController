@@ -65,6 +65,21 @@ sudo journalctl -u firesculpture -n 50 --no-pager
 sudo journalctl -u firesculpture -f
 ```
 
+The service currently uses `--log-level DEBUG` for serial troubleshooting. Each
+`Sending serial data: b'...'` entry shows the exact bytes passed to the serial driver;
+the `b` prefix and quotes are Python's display notation, not transmitted characters.
+This records attempted writes, not confirmation of what the receiving device saw.
+To follow only these entries:
+
+```sh
+sudo journalctl -u firesculpture -f --grep='Sending serial data'
+```
+
+On this Pi, the journal was stored under `/run/log/journal/` when checked on
+2026-10-27, with only the current boot retained. Those logs do not survive a reboot.
+To reduce logging later, change the unit's `--log-level DEBUG` to `--log-level INFO`
+and apply the unit change using the commands below.
+
 Ctrl+C exits the log viewer; the service keeps running. Common controls:
 
 ```sh

@@ -21,11 +21,13 @@ class AdaptorConfig(TypedDict):
 	ports: list[str]
 	baudrate: int | str
 	adaptorId: NotRequired[str]
+	identity: NotRequired[dict | None]
 
 
 class AdaptorUpdate(TypedDict, total=False):
 	ports: list[str]
 	baudrate: int | str
+	identity: dict | None
 
 
 class ProtocolConfig(TypedDict):
