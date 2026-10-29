@@ -32,6 +32,7 @@
 <script id="sculptureControllerTemplate" type="text/x-jsrender">
   <span class="ui-widget-content ui-corner-all sculptureHeading">{{>sculptureName}}</span>
   <div id="fuckYouInTheEarCss">
+    <button id="refreshStateButton" type="button" title="Refresh controls from controller" aria-label="Refresh controls from controller">&#x21bb;</button>
     <div id="safeButtonDiv">
       <input type="radio" id="safeModeOn" name="radio" value="on" {{if safeMode}}checked="checked"{{/if}}><label for="safeModeOn" class="safeModeLabel">Safe</label>
       <input type="radio" id="safeModeOff" name="radio" value="off" {{if safeMode}} {{else}}checked="checked"{{/if}}><label for="safeModeOff" class="safeModeLabel">Run</label>

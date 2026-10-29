@@ -174,13 +174,31 @@ html.touch-display ::-webkit-scrollbar-corner{
   display:block;
   float:left;
  }
+#refreshStateButton{
+  width:114px;
+  flex-shrink:0;
+}
+#refreshStateButton .ui-button-text{
+  padding:0;
+  line-height:28px;
+}
+#safeButtonDiv{
+  white-space:nowrap;
+}
 #fuckYouInTheEarCss{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
   float:right;
   margin:0px;
   padding:0px;
-  width:300px;
+  width:auto;
 }
-.sculptureHeading, .safeModeLabel{
+.sculptureHeading, .safeModeLabel, #refreshStateButton{
+  box-sizing:border-box;
+  height:32px;
+  line-height:28px;
+  vertical-align:top;
   font-variant:small-caps !important;
   font-size:22px !important;
   font-weight:bold !important;
@@ -196,7 +214,7 @@ html.touch-display ::-webkit-scrollbar-corner{
 }
 
 .safeModeLabel{
-  width:100px;
+  width:114px;
 }
 .safeModeLabel span{
   padding:0px !important;

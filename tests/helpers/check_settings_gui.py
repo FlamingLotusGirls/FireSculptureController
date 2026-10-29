@@ -16,7 +16,6 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 SCRIPT = r'''
-window.EventSource = function() {};
 function assert(value, message) { if (!value) throw Error(message); }
 function waitFor(check) {
     return new Promise(function(resolve, reject) {
@@ -48,8 +47,22 @@ async function runChecks() {
     } else { $('#poofers_patternChoices').val('Chase').trigger('change'); }
     await waitFor(function() { return Object.keys(allSculptureData.modules.poofers.patterns).length == 1; });
     var pattern = allSculptureData.modules.poofers.patterns[Object.keys(allSculptureData.modules.poofers.patterns)[0]];
+    var controlsBeforeTrigger = $('#poofers_patternChoices')[0];
+    var stateEvents = 0;
+    serverSentEventStream.addEventListener('message', function(event) {
+        if (JSON.parse(event.data).stateChanged) stateEvents++;
+    });
     doCommand(['setInputValue', pattern.inputs.numberOn.inputInstanceId, 4, pattern.inputs.numberOn.outParamIndex]);
     await waitFor(function() { return $('#logDiv').text().indexOf('Controller accepted: setInputValue') >= 0; });
+    await waitFor(function() { return stateEvents > 0; });
+    await new Promise(function(resolve) { setTimeout(resolve, 350); });
+    assert($('#poofers_patternChoices')[0] === controlsBeforeTrigger, 'State notification replaced controls');
+    serverSentEventStream.onopen();
+    await new Promise(function(resolve) { setTimeout(resolve, 350); });
+    assert($('#poofers_patternChoices')[0] === controlsBeforeTrigger, 'Stream reconnect replaced controls');
+    $('#refreshStateButton').click();
+    await waitFor(function() { return $('#poofers_patternChoices')[0] !== controlsBeforeTrigger; });
+    assert(allSculptureData.inputs[pattern.inputs.numberOn.inputInstanceId].inParams[pattern.inputs.numberOn.outParamIndex].currentValue == 4, 'Manual refresh did not pick up current state');
     var saved = await (await fetch('/test/saved')).json();
     assert(saved.adaptors.flameBus.ports[0] == path, 'USB selection not saved');
     assert(saved.modules.poofers.patterns[0].type == 'Chase', 'Pattern not saved');
@@ -70,7 +83,7 @@ async function runChecks() {
     choosePort(path);
     await waitFor(function() { return $('#connectionStatus').text().indexOf('Port connected') >= 0 && !$('#connectionStatus').hasClass('connectionWarning'); });
     assert($('#connectionStatus')[0].getBoundingClientRect().height < 90, 'Status strip takes too much room');
-    return {touch: isTouchDisplay, checks: 'USB selection, by-id labels, autosave, pattern restore, Run warning, backend error, recovery, compact strip'};
+    return {touch: isTouchDisplay, checks: 'stable controls on SSE and reconnect, manual refresh, USB selection, by-id labels, autosave, pattern restore, Run warning, backend error, recovery, compact strip'};
 }
 window.addEventListener('load', async function() {
     try {

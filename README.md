@@ -199,3 +199,12 @@ the selection saves immediately. For default configuration, `flameBus.ports` and
 `ledBus.ports` can also be set in the sculpture JSON. Do not put both
 USB Serial adapters in each `ports` list: the list contains alternatives for one bus.
 Label the cables to match. If a USB Serial adapter is replaced, update its saved path.
+
+### Refreshing the control panel
+
+The ↻ button beside Safe/Run reloads controls from the controller. Use it to
+pick up pattern or input changes made in another browser. State notifications and
+stream reconnections no longer rebuild the panel, so trigger controls stay in place
+when operating All Poof or Chase. Live output indicators, Safe/Run status, and USB
+connection status still update. Adding or removing patterns in this browser still
+refreshes the panel automatically.

@@ -21,9 +21,8 @@ function convertRGBTupleToRGBString(tuple) {
 
 
 function handleDataStreamEvent(data){
-	if (data.stateChanged){
-		reloadData();
-	}
+	// State notifications must not rebuild controls during live operation.
+	// Use the header refresh button to pick up edits from another browser.
 	if (data.log){
 		$.each(data.log, function(logIndex, logItem){
 			$('#logDiv').prepend(logItem + '<br>');
@@ -43,7 +42,7 @@ function handleDataStreamEvent(data){
 							pointData[0][0] +
 							'_' + pointData[0][1] +
 							'_label')[0];
-					element.style.background =
+					if (element) element.style.background =
 						convertRGBTupleToRGBString(pointData[1]);
 
 				} else {
@@ -348,8 +347,8 @@ function doInit(){
 	});
 	reloadData();
 	serverSentEventStream = new EventSource('/dataStream');
-	// Events missed during a disconnect are recovered from the current snapshot.
-	serverSentEventStream.onopen = reloadData;
+	// Reconnecting the stream must not interrupt trigger controls either.
+	serverSentEventStream.onopen = refreshConnectionStatus;
 	serverSentEventStream.onmessage = function (event) {
 		handleDataStreamEvent(JSON.parse(event.data));
 	};
@@ -475,6 +474,7 @@ function buildAll(){
 			var parts = this.id.split('_');
 			doCommand(['removePattern', parts[0], parts[1]]);
 		});
+		$('#refreshStateButton').button().click(reloadData);
 		$('#safeButtonDiv').buttonset();
 		$('#safeModeOn').click(function(e){
 			doCommand(['setSafeMode', true]);
@@ -590,6 +590,11 @@ function refreshConnectionStatus(){
 		var signature = JSON.stringify(result);
 		if (signature == lastConnectionStatus && $('#connectionStatus').children().length) return;
 		lastConnectionStatus = signature;
+		// Keep the safety indicator current without replacing any controls.
+		allSculptureData.safeMode = result.safeMode;
+		$('#safeModeOn').prop('checked', result.safeMode);
+		$('#safeModeOff').prop('checked', !result.safeMode);
+		$('#safeButtonDiv').buttonset('refresh');
 		var panel = $('#connectionStatus').empty().removeClass('connectionWarning');
 		$.each(result.connections, function(index, connection){
 			var text;
