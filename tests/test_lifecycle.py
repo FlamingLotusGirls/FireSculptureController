@@ -146,8 +146,49 @@ def test_chase_spacing_and_reverse_with_three_pulses(controller):
         assert [col for col in range(14) if pattern.getState(0, col)] == [5, 9, 13]
 
 
+@pytest.mark.parametrize('reverse', [False, True])
+@pytest.mark.parametrize('start, stop', [(2, 36), (0, 3), (40, 0), (7, 7), (9, 3)])
+def test_chase_range_skips_excluded_poofers_without_empty_steps(controller, reverse, start, stop):
+    controller.loadSculpture('serpent')
+    with engineLock:
+        pattern_id = controller.doCommand(['addPattern', 'poofers', 'Chase'])
+        pattern = controller.sculptureModules['poofers'].patterns[pattern_id]
+        for channel, value in [('numberOn', 1), ('startPoofer', start), ('stopPoofer', stop), ('reverse', reverse)]:
+            instance, index = pattern.inputs.getInputAssignment(channel)
+            controller.setInputValue(instance, value, index)
+        instance, _ = pattern.inputs.getInputAssignment('triggerStep')
+        step_input = controller.inputManager.getInputObj(instance)
+        step_input.timer.stop()
+        frames = []
+        pattern.setUpdateFunction(lambda: frames.append([
+            col + 1 for col in range(42) if pattern.getState(0, col)]))
+        expected = list(range(start or 1, (stop or 42) + 1))
+        if reverse:
+            expected.reverse()
+        for _ in range(2 * len(expected) if expected else 3):
+            step_input.sendPulse()
+        assert frames == [[poofer] for poofer in expected * 2] if expected else frames == [[], [], []]
+
+
+def test_chase_range_spaces_pulses_and_resets_when_changed(controller):
+    controller.loadSculpture('tympani')
+    with engineLock:
+        pattern_id = controller.doCommand(['addPattern', 'poofers', 'Chase'])
+        pattern = controller.sculptureModules['poofers'].patterns[pattern_id]
+        for channel, value in [('numberOn', 1), ('numberPulses', 3), ('startPoofer', 2), ('stopPoofer', 13)]:
+            instance, index = pattern.inputs.getInputAssignment(channel)
+            controller.setInputValue(instance, value, index)
+        assert [col + 1 for col in range(14) if pattern.getState(0, col)] == [2, 6, 10]
+        pattern.position = 11
+        instance, index = pattern.inputs.getInputAssignment('stopPoofer')
+        controller.setInputValue(instance, 7, index)
+        assert pattern.position == 0
+        assert [col + 1 for col in range(14) if pattern.getState(0, col)] == [2, 4, 6]
+
+
 @pytest.mark.parametrize('duration', [500, 1500])
-def test_chase_on_duration_is_independent_of_step_interval(controller, monkeypatch, duration):
+@pytest.mark.parametrize('start', [0, 2])
+def test_chase_on_duration_is_independent_of_step_interval(controller, monkeypatch, duration, start):
     from Patterns import Poof
 
     # Advance OFF deadlines explicitly so the exact 500/1000 ms case is deterministic.
@@ -185,22 +226,23 @@ def test_chase_on_duration_is_independent_of_step_interval(controller, monkeypat
         pattern_id = controller.doCommand(['addPattern', 'poofers', 'Chase'])
         module = controller.sculptureModules['poofers']
         pattern = module.patterns[pattern_id]
-        for channel, value in [('numberOn', 1), ('stayOnTime', duration), ('triggerStep', 1000)]:
+        for channel, value in [('numberOn', 1), ('stayOnTime', duration), ('triggerStep', 1000), ('startPoofer', start)]:
             instance, index = pattern.inputs.getInputAssignment(channel)
             controller.setInputValue(instance, value, index)
         instance, _ = pattern.inputs.getInputAssignment('triggerStep')
         step_input = controller.inputManager.getInputObj(instance)
         step_input.timer.stop()
         controller.setSafeMode(False)
+        offset = max(0, start - 1)
         step_input.sendPulse()
-        assert module.currentOutputState[0][:2] == [True, False]
+        assert module.currentOutputState[0][offset:offset + 2] == [True, False]
         clock.advance(500)
-        assert module.currentOutputState[0][:2] == [duration > 500, False]
+        assert module.currentOutputState[0][offset:offset + 2] == [duration > 500, False]
         clock.advance(500)
         step_input.sendPulse()
-        assert module.currentOutputState[0][:2] == [duration > 1000, True]
+        assert module.currentOutputState[0][offset:offset + 2] == [duration > 1000, True]
         clock.advance(500)
-        assert module.currentOutputState[0][:2] == [False, duration > 500]
+        assert module.currentOutputState[0][offset:offset + 2] == [False, duration > 500]
         # Removing a pattern clears active output and cancels every pending OFF.
         controller.doCommand(['removePattern', 'poofers', pattern_id])
         assert not any(module.currentOutputState[0])

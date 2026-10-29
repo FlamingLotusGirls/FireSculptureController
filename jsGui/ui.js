@@ -943,6 +943,9 @@ function showPatternDetails(moduleId, patternInstanceId){
 		var durationId = '#inputInstance' + inputs.stayOnTime.inputInstanceId;
 		$(durationId + '_div').insertAfter('#inputInstance' + inputs.triggerStep.inputInstanceId + '_div');
 		$(durationId + '_input0_description').text('ms, 0 = direct follow');
+		if (inputs.startPoofer){
+			$('#inputInstance' + inputs.startPoofer.inputInstanceId + '_div').insertAfter('#inputInstance' + inputs.reverse.inputInstanceId + '_div');
+		}
 	}
 
 }

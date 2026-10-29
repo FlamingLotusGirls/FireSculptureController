@@ -134,9 +134,13 @@ html.touch-display ::-webkit-scrollbar-corner{
 .patternDetails .inputMultipleControls{
   width: 346px;
 }
+.patternDetails .inputTwoControls{
+  width: 234px;
+}
 .patternDetails .inputControls{
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 12px;
   padding: 10px;
 }

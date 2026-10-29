@@ -4,7 +4,7 @@ from Patterns.PatternBase import PatternBase
 from ProgramModules.Timers import Timer
 import json
 class Chase(PatternBase):
-	def __init__(self, *args) -> None:
+	def __init__(self, gridSize: list[int], *args) -> None:
 		self.inputParams = {
 			'multiVal' : {
 				'descriptionInPattern' : 'Parameters',
@@ -47,6 +47,29 @@ class Chase(PatternBase):
 				'subType' : 'onOff',
 				'default' : False
 			},
+			'chaseRange' : {
+				'descriptionInPattern' : 'Chase range (0 = ignore)',
+				'type' : 'multi',
+				'subType' : 'basic',
+				'number' : 2,
+				'basicInputType' : 'int value',
+				'min' : [0, 0],
+				'max' : [gridSize[1], gridSize[1]],
+				'default' : [0, 0],
+				'description' : ['Start', 'Stop'],
+				'sendMessageOnChange' : True,
+				'channels' : ['startPoofer', 'stopPoofer']
+			},
+			'startPoofer' : {
+				'descriptionInPattern' : 'Start poofer',
+				'type' : 'value',
+				'bindToFunction' : 'rangeChanged'
+			},
+			'stopPoofer' : {
+				'descriptionInPattern' : 'Stop poofer',
+				'type' : 'value',
+				'bindToFunction' : 'rangeChanged'
+			},
 			'numberOn' : {
 				'descriptionInPattern' : 'Number of poofers on',
 				'type' : 'value',
@@ -60,7 +83,7 @@ class Chase(PatternBase):
 				'type' : 'value',
 			}
 		}
-		PatternBase.__init__(self, *args)
+		PatternBase.__init__(self, gridSize, *args)
 		self.patternName = 'Poofer Chase'
 
 		self.position = 0
@@ -74,7 +97,17 @@ class Chase(PatternBase):
 				self.startTimedPoofers()
 			self.requestUpdate()
 			self.position += self.inputs.stepping
-			if self.position > self.gridSize[1]:
+			start, stop = self.getChaseRange()
+			length = stop - start
+			if self.inputs.startPoofer or self.inputs.stopPoofer:
+				# Explicit ranges wrap immediately, without an empty step at either end.
+				if length > 0 and self.position < length:
+					return
+				self.position = self.position % length if length > 0 else 0
+				self.sequenceTriggered = self.inputs.triggerSequence
+				if not self.sequenceTriggered:
+					self.requestUpdate()
+			elif self.position > self.gridSize[1]:
 				if self.inputs.numberPulses > 1:
 					self.position -= self.gridSize[1]
 				else:
@@ -109,17 +142,36 @@ class Chase(PatternBase):
 			timer.stop()
 		PatternBase.stop(self)
 
+	def getChaseRange(self) -> tuple[int, int]:
+		# Controls use inclusive, one-based poofer numbers; code uses [start, stop).
+		start = max(0, min(self.inputs.startPoofer - 1, self.gridSize[1] - 1))
+		stop = max(0, min(self.inputs.stopPoofer or self.gridSize[1], self.gridSize[1]))
+		return start, stop
+
+	def rangeChanged(self, *args) -> None:
+		self.position = 0
+		self.timedPoofers.clear()
+		self.requestUpdate()
+
 	def getState(self, row: int, col: int) -> bool:
+		start, stop = self.getChaseRange()
+		if not start <= col < stop:
+			return False
 		if self.inputs.stayOnTime > 0:
 			return col in self.timedPoofers
 		return self.isPooferInStep(col)
 
 	def isPooferInStep(self, col: int) -> bool:
+		start, stop = self.getChaseRange()
+		if not start <= col < stop:
+			return False
+		col -= start
+		length = stop - start
 		result = False
 		if self.inputs.reverse:
-			col = self.gridSize[1] - (col + 1)
+			col = length - (col + 1)
 		if self.sequenceTriggered:
-			spacing = self.gridSize[1] // self.inputs.numberPulses
+			spacing = length // self.inputs.numberPulses
 			intervalCount = 0
 			while intervalCount < self.inputs.numberPulses and not result:
 				lowerLimit = self.position + intervalCount * spacing

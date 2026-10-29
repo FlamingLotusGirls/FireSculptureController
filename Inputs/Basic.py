@@ -121,7 +121,7 @@ class TimerPulseInput(InputBase):
 class BasicMultiInput(InputBase):
 	def __init__(self, configParams, *args) -> None:
 		configParams = utils.multiExtendSettings({'inParams' : []}, configParams)
-		inParamKeys = [key for key in ['min', 'max', 'default', 'description', 'choices'] if key in configParams]
+		inParamKeys = [key for key in ['min', 'max', 'default', 'description', 'choices', 'sendMessageOnChange'] if key in configParams]
 		for i in range(configParams['number']):
 			configParam = {}
 			for key in inParamKeys:

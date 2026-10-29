@@ -85,6 +85,7 @@
 			}
 			var value = preview.val();
 			if (numeric){
+				if (value.trim() === '') value = '0';
 				var valid = integer ? /^-?\d+$/.test(value) : value.trim() !== '' && isFinite(Number(value));
 				if (!valid){
 					error.text(integer ? 'Enter a whole number.' : 'Enter a number.');

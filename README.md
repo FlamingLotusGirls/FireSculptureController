@@ -223,3 +223,15 @@ when the next step starts. Longer durations can overlap steps. Selecting a poofe
 again before it turns off restarts its on-duration. The last step's poofers finish
 their duration even when the sequence ends. Changes to duration apply to subsequent
 steps; zero switches back to the original behavior. The setting saves with the pattern.
+
+
+### Chase range
+
+The **Chase range (0 = ignore)** card follows **Reverse direction** and contains
+**Start** and **Stop**. Poofer numbers start at **1**; both endpoints are included.
+For example, Start **2** and Stop **36** chase only poofers 2 through 36, with no
+steps or delays for excluded poofers. Reverse runs through the same range backwards.
+**0** uses the first poofer for Start or the last poofer for Stop. Leaving both at
+zero preserves the original full-sculpture timing. Start greater than Stop produces
+no output. Changing either endpoint resets the chase position and clears active
+Chase pulses; the next step uses the new range. The range saves with the pattern.

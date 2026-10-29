@@ -91,7 +91,7 @@
   <div style="display:none;">
     <div id="inputs" style="margin:0px; padding:0px;">
       {{for inputs}}
-        <div style="display:none;" id="inputInstance{{>inputInstanceId}}_div" class="ui-widget ui-widget-content ui-corner-all ui-state-active inputOuterWrapper{{if inParams.length > 1}} inputMultipleControls{{/if}}">
+        <div style="display:none;" id="inputInstance{{>inputInstanceId}}_div" class="ui-widget ui-widget-content ui-corner-all ui-state-active inputOuterWrapper{{if inParams.length > 1}} inputMultipleControls{{/if}}{{if inParams.length == 2}} inputTwoControls{{/if}}">
           <span class="inputDescription" id="inputInstance{{>inputInstanceId}}_description"></span>
           <div class="inputControls">
           {{for inParams}}
