@@ -235,3 +235,21 @@ steps or delays for excluded poofers. Reverse runs through the same range backwa
 zero preserves the original full-sculpture timing. Start greater than Stop produces
 no output. Changing either endpoint resets the chase position and clears active
 Chase pulses; the next step uses the new range. The range saves with the pattern.
+
+
+### Twister
+
+**Twister** starts at one end and moves to an adjacent poofer on each step.
+At an end it always heads inward. Between the ends it rolls a new random number:
+**Continue chance** is the percentage chance of keeping the current direction.
+The default is **60%**; **50%** gives even odds, **0%** always reverses when there
+is a choice, and **100%** keeps going until it reaches an end.
+
+Switch **Run twister** on to start, and off to stop and clear its outputs.
+**Start at far end** chooses the opposite starting end; changing it restarts the
+walk. Step interval defaults to **1000 ms**. **On duration** works like Chase:
+**0** follows the steps, while a positive value sets each poofer's on-time in ms.
+Longer on-times can overlap, and revisiting an active poofer restarts its on-time.
+For sculptures with multiple rows, the walk follows columns on each enabled row,
+just like Chase. All controls save with the pattern; sculpture startup remains in
+safe mode.

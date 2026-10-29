@@ -49,10 +49,14 @@ def test_active_configuration_and_bundled_gui_libraries_match_reference():
             continue
         current = (ROOT / name).read_bytes()
         original = (ROOT / "py2" / name).read_bytes()
-        if name == "sculptureDefinitions/serpent.json":
-            # The Pi deployment changes only Serpent's flame-bus port.
+        if name.startswith("sculptureDefinitions/"):
             expected = json.loads(original)
-            expected["adaptors"]["flameBus"]["ports"] = ["/dev/ttyUSB0"]
+            if name == "sculptureDefinitions/serpent.json":
+                expected["adaptors"]["flameBus"]["ports"] = ["/dev/ttyUSB0"]
+            # Twister is the only addition to the original pattern menus.
+            for module in expected['modules'].values():
+                if 'Chase' in module.get('patterns', []):
+                    module['patterns'].insert(1, 'Twister')
             assert json.loads(current) == expected, name
             continue
         path = Path(name)

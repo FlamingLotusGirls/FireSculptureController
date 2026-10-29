@@ -81,6 +81,8 @@ for sculpture in ("aota", "serpent", "tympani"):
             record(prefix+"/manual-on", lambda: module.setItemState([0, 0], True))
             record(prefix+"/manual-off", lambda: module.setItemState([0, 0], False))
             for patternName in sorted(module.availablePatternNames):
+                if patternName == "Twister":
+                    continue  # New pattern; covered separately, not part of the Python 2 baseline.
                 instance = module.addPattern(patternName)
                 pattern = module.patterns[instance]
                 if patternName == "AllPoof":

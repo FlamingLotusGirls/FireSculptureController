@@ -19,7 +19,7 @@
         ]
       },
       "patternType" : "Poof",
-      "patterns" : ["Chase", "AllPoof", "RandomPoof"]
+      "patterns" : ["Chase", "Twister", "AllPoof", "RandomPoof"]
       
     },
     "clackers" : {
@@ -34,7 +34,7 @@
         ]
       },
       "patternType" : "Poof",
-      "patterns" : ["Chase", "AllPoof", "RandomPoof"]
+      "patterns" : ["Chase", "Twister", "AllPoof", "RandomPoof"]
     },
     "leds" : {
       "name" : "Mobius Leds",

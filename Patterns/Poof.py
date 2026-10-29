@@ -3,6 +3,7 @@ from __future__ import annotations
 from Patterns.PatternBase import PatternBase
 from ProgramModules.Timers import Timer
 import json
+import random
 class Chase(PatternBase):
 	def __init__(self, gridSize: list[int], *args) -> None:
 		self.inputParams = {
@@ -186,6 +187,92 @@ class Chase(PatternBase):
 				intervalCount += 1
 		return result
 		
+class Twister(PatternBase):
+	def __init__(self, *args) -> None:
+		self.inputParams = {
+			'triggerSequence': {
+				'descriptionInPattern': 'Run twister',
+				'type': 'pulse', 'subType': 'onOff', 'default': False,
+				'bindToFunction': 'reset'
+			},
+			'triggerStep': {
+				'descriptionInPattern': 'Trigger next step in sequence',
+				'type': 'pulse', 'subType': 'timer',
+				'min': 50, 'max': 3000, 'default': 1000,
+				'bindToFunction': 'triggerStep'
+			},
+			'stayOnTime': {
+				'descriptionInPattern': 'On duration',
+				'type': 'value', 'subType': 'int',
+				'min': 0, 'max': 3000, 'default': 0
+			},
+			'continueChance': {
+				'descriptionInPattern': 'Continue chance',
+				'description': '%, 50 = even odds',
+				'type': 'value', 'subType': 'int',
+				'min': 0, 'max': 100, 'default': 60
+			},
+			'startAtEnd': {
+				'descriptionInPattern': 'Start at far end',
+				'type': 'pulse', 'subType': 'onOff', 'default': False,
+				'bindToFunction': 'reset'
+			}
+		}
+		PatternBase.__init__(self, *args)
+		self.patternName = 'Twister'
+		self.position: int | None = None
+		self.direction = 1
+		self.timedPoofers: set[int] = set()
+		self.offTimers: dict[int, Timer] = {}
+
+	def reset(self, *args) -> None:
+		self.position = None
+		self.timedPoofers.clear()
+		self.inputs.doCommand(['triggerStep', 'refresh'])
+		self.requestUpdate()
+
+	def triggerStep(self, *args) -> None:
+		if not self.inputs.triggerStep or not self.inputs.triggerSequence:
+			return
+		last = self.gridSize[1] - 1
+		if self.position is None:
+			self.position = last if self.inputs.startAtEnd else 0
+			self.direction = -1 if self.inputs.startAtEnd else 1
+		elif last > 0:
+			if self.position == 0:
+				self.direction = 1
+			elif self.position == last:
+				self.direction = -1
+			elif random.random() >= self.inputs.continueChance / 100.0:
+				self.direction *= -1
+			self.position += self.direction
+
+		if self.inputs.stayOnTime > 0:
+			col = self.position
+			if col not in self.offTimers:
+				self.offTimers[col] = Timer(False, self.inputs.stayOnTime, self.turnOffPoofer, (col,))
+			self.timedPoofers.add(col)
+			self.offTimers[col].changeInterval(self.inputs.stayOnTime)
+			self.offTimers[col].refresh()
+		self.requestUpdate()
+
+	def turnOffPoofer(self, col: int) -> None:
+		self.timedPoofers.discard(col)
+		self.requestUpdate()
+
+	def getState(self, row: int, col: int) -> bool:
+		if not self.inputs.triggerSequence:
+			return False
+		if self.inputs.stayOnTime > 0:
+			return col in self.timedPoofers
+		return col == self.position
+
+	def stop(self) -> None:
+		for timer in self.offTimers.values():
+			timer.stop()
+		PatternBase.stop(self)
+
+
 class AllPoof(PatternBase):
 	def __init__(self, *args) -> None:
 		self.inputParams = {

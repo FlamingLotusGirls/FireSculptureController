@@ -281,6 +281,113 @@ def test_chase_real_off_timer_and_cleanup(controller):
     assert all(not timer.is_alive() for timer in timers)
 
 
+@pytest.fixture
+def twister(controller):
+    definition = controller.sculptureDefinitions['serpent']['modules']['poofers']
+    definition['protocol']['mapping'] = [definition['protocol']['mapping'][0][:3]]
+    controller.loadSculpture('serpent')
+    with engineLock:
+        pattern_id = controller.doCommand(['addPattern', 'poofers', 'Twister'])
+        pattern = controller.sculptureModules['poofers'].patterns[pattern_id]
+        instance, _ = pattern.inputs.getInputAssignment('triggerStep')
+        step_input = controller.inputManager.getInputObj(instance)
+        step_input.timer.stop()
+
+    def set_control(channel, value):
+        instance, index = pattern.inputs.getInputAssignment(channel)
+        controller.setInputValue(instance, value, index)
+
+    return pattern, step_input, set_control
+
+
+@pytest.mark.parametrize('chance, roll, expected', [
+    (60, 0.599, [0, 1, 2, 1, 0]),
+    (60, 0.600, [0, 1, 0, 1, 0]),
+    (50, 0.499, [0, 1, 2, 1, 0]),
+    (50, 0.500, [0, 1, 0, 1, 0]),
+    (0, 0.0, [0, 1, 0, 1, 0]),
+    (100, 0.999, [0, 1, 2, 1, 0]),
+])
+@pytest.mark.parametrize('start_at_end', [False, True])
+def test_twister_moves_to_a_neighbor_with_direction_bias(twister, monkeypatch, chance, roll, expected, start_at_end):
+    from Patterns import Poof
+    pattern, step_input, set_control = twister
+    rolls = []
+
+    def roll_die():
+        rolls.append(pattern.position)
+        return roll
+
+    monkeypatch.setattr(Poof.random, 'random', roll_die)
+    with engineLock:
+        set_control('continueChance', chance)
+        set_control('startAtEnd', start_at_end)
+        set_control('triggerSequence', True)
+        positions = []
+        for _ in expected:
+            step_input.sendPulse()
+            active = [col for col in range(3) if pattern.getState(0, col)]
+            assert len(active) == 1
+            positions.extend(active)
+        assert positions == [2 - col for col in expected] if start_at_end else positions == expected
+        assert rolls == [1, 1]  # No random choice at an end or on the first step.
+        set_control('triggerSequence', False)
+        step_input.sendPulse()
+        assert not any(pattern.getState(0, col) for col in range(3))
+        set_control('triggerSequence', True)
+        step_input.sendPulse()
+        assert pattern.position == (2 if start_at_end else 0)
+
+
+def test_twister_handles_one_poofer_and_changing_start_end(twister):
+    pattern, step_input, set_control = twister
+    with engineLock:
+        set_control('triggerSequence', True)
+        step_input.sendPulse()
+        step_input.sendPulse()
+        assert pattern.position == 1
+        set_control('startAtEnd', True)
+        assert not any(pattern.getState(0, col) for col in range(3))
+        step_input.sendPulse()
+        assert pattern.position == 2
+        pattern.gridSize = [1, 1]
+        pattern.reset()
+        for _ in range(3):
+            step_input.sendPulse()
+            assert pattern.getState(0, 0)
+            assert pattern.position == 0
+
+
+def test_twister_on_duration_and_removal(twister, controller):
+    pattern, step_input, set_control = twister
+    module = controller.sculptureModules['poofers']
+    updates = Queue()
+
+    def record_output():
+        module.doUpdates()
+        updates.put((monotonic(), list(module.currentOutputState[0])))
+
+    with engineLock:
+        set_control('stayOnTime', 100)
+        set_control('triggerSequence', True)
+        controller.setSafeMode(False)
+        pattern.setUpdateFunction(record_output)
+        start = monotonic()
+        step_input.sendPulse()
+        assert updates.get(timeout=1)[1] == [True, False, False]
+    when, output = updates.get(timeout=2)
+    assert when - start >= 0.08
+    assert output == [False, False, False]
+    with engineLock:
+        set_control('stayOnTime', 1000)
+        step_input.sendPulse()
+        assert module.currentOutputState[0] == [False, True, False]
+        timers = list(pattern.offTimers.values())
+        controller.doCommand(['removePattern', 'poofers', pattern.instanceId])
+        assert not any(module.currentOutputState[0])
+        assert all(not timer.is_alive() for timer in timers)
+
+
 def test_timer_refresh_interval_and_self_stop():
     fired = Queue()
     timer = Timer(False, 1000, lambda: fired.put(monotonic()))

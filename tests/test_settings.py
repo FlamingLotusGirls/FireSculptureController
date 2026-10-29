@@ -230,3 +230,24 @@ def test_store_does_not_rewrite_unchanged_settings(tmp_path):
     before = (tmp_path / 'serpent.json').stat().st_mtime_ns
     store.save('serpent', settings)
     assert (tmp_path / 'serpent.json').stat().st_mtime_ns == before
+
+
+def test_twister_settings_survive_restart(controllers):
+    controller = controllers()
+    controller.loadSculpture('serpent')
+    with engineLock:
+        pattern_id = controller.doCommand(['addPattern', 'poofers', 'Twister'])
+        pattern = controller.sculptureModules['poofers'].patterns[pattern_id]
+        for channel, value in [('continueChance', 75), ('startAtEnd', True), ('stayOnTime', 500), ('triggerStep', 1000)]:
+            set_channel(controller, pattern, channel, value)
+    controller.stop()
+    restored = controllers()
+    restored.loadSculpture('serpent')
+    with engineLock:
+        pattern = next(iter(restored.sculptureModules['poofers'].patterns.values()))
+        assert pattern.patternName == 'Twister'
+        assert (pattern.inputs.continueChance, pattern.inputs.startAtEnd, pattern.inputs.stayOnTime) == (75, True, 500)
+        instance, _ = pattern.inputs.getInputAssignment('triggerStep')
+        assert restored.inputManager.getInputObj(instance).timer.interval == 1000
+        assert pattern.inputs.triggerSequence is False
+        assert app.safeMode.isSet()

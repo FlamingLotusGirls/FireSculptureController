@@ -19,7 +19,7 @@
         ]
       },
       "patternType" : "Poof",
-      "patterns" : ["Chase", "AllPoof"]
+      "patterns" : ["Chase", "Twister", "AllPoof"]
     }
   }
 }
