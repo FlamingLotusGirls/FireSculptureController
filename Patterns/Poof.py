@@ -33,6 +33,14 @@ class Chase(PatternBase):
 				'subType' : 'onOff',
 				'bindToFunction' : 'triggerSequence'
 			},
+			'stayOnTime' : {
+				'descriptionInPattern' : 'On duration',
+				'type' : 'value',
+				'subType' : 'int',
+				'min' : 0,
+				'max' : 3000,
+				'default' : 0
+			},
 			'reverse' : {
 				'descriptionInPattern' : 'Reverse direction',
 				'type' : 'pulse',
@@ -57,9 +65,13 @@ class Chase(PatternBase):
 
 		self.position = 0
 		self.sequenceTriggered = True
+		self.timedPoofers: set[int] = set()
+		self.offTimers: dict[int, Timer] = {}
 
 	def triggerStep(self, *args) -> None:
 		if self.inputs.triggerStep and self.sequenceTriggered:
+			if self.inputs.stayOnTime > 0:
+				self.startTimedPoofers()
 			self.requestUpdate()
 			self.position += self.inputs.stepping
 			if self.position > self.gridSize[1]:
@@ -78,7 +90,31 @@ class Chase(PatternBase):
 			self.position = 0
 			self.sequenceTriggered = True
 			
+	def startTimedPoofers(self) -> None:
+		# Each selected poofer gets its own OFF deadline, independent of step timing.
+		for col in range(self.gridSize[1]):
+			if self.isPooferInStep(col):
+				if col not in self.offTimers:
+					self.offTimers[col] = Timer(False, self.inputs.stayOnTime, self.turnOffPoofer, (col,))
+				self.timedPoofers.add(col)
+				self.offTimers[col].changeInterval(self.inputs.stayOnTime)
+				self.offTimers[col].refresh()
+
+	def turnOffPoofer(self, col: int) -> None:
+		self.timedPoofers.discard(col)
+		self.requestUpdate()
+
+	def stop(self) -> None:
+		for timer in self.offTimers.values():
+			timer.stop()
+		PatternBase.stop(self)
+
 	def getState(self, row: int, col: int) -> bool:
+		if self.inputs.stayOnTime > 0:
+			return col in self.timedPoofers
+		return self.isPooferInStep(col)
+
+	def isPooferInStep(self, col: int) -> bool:
 		result = False
 		if self.inputs.reverse:
 			col = self.gridSize[1] - (col + 1)

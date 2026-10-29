@@ -22,6 +22,8 @@ def current_trace(tmp_path_factory):
     subprocess.run(
         [sys.executable, "-W", "error", str(ROOT / "tools/record_baseline.py"),
          "--root", str(ROOT), "--output", str(output)],
+        # This session fixture runs before the per-test settings isolation.
+        env={**os.environ, "FIRESCULPTURE_STATE_DIR": str(output.parent / "settings")},
         check=True, capture_output=True, text=True, timeout=30,
     )
     return read_json(output)

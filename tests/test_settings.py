@@ -55,6 +55,7 @@ def test_patterns_parameters_rows_enabled_outputs_and_usb_survive_restart(contro
         set_channel(controller, chase, 'numberOn', 4)
         set_channel(controller, chase, 'stepping', 3)
         set_channel(controller, chase, 'triggerStep', 975)
+        set_channel(controller, chase, 'stayOnTime', 500)
         set_channel(controller, chase, 'reverse', True)
         set_channel(controller, chase, 'triggerSequence', False)
         set_channel(controller, led, 'red', 123)
@@ -72,6 +73,7 @@ def test_patterns_parameters_rows_enabled_outputs_and_usb_survive_restart(contro
         chase = next(iter(poofers.patterns.values()))
         assert (chase.inputs.numberOn, chase.inputs.stepping, chase.inputs.reverse) == (4, 3, True)
         assert chase.inputs.triggerSequence is False
+        assert chase.inputs.stayOnTime == 500
         timer_id, _ = chase.inputs.getInputAssignment('triggerStep')
         assert restored.inputManager.getInputObj(timer_id).timer.interval == 975
         led = next(iter(restored.sculptureModules['leds'].patterns.values()))

@@ -936,6 +936,14 @@ function showPatternDetails(moduleId, patternInstanceId){
 	$.each(allSculptureData.modules[moduleId].patterns[patternInstanceId].inputs, function(inputChannelId, patternInputData){
 		showInput(moduleId + '_' + patternInstanceId, patternInputData, inputChannelId);
 	});
+	// Put Chase's trigger first and keep its timing controls together, including saved patterns.
+	var inputs = allSculptureData.modules[moduleId].patterns[patternInstanceId].inputs;
+	if (inputs.triggerStep && inputs.stayOnTime){
+		$('#inputInstance' + inputs.triggerSequence.inputInstanceId + '_div').prependTo('#inputs');
+		var durationId = '#inputInstance' + inputs.stayOnTime.inputInstanceId;
+		$(durationId + '_div').insertAfter('#inputInstance' + inputs.triggerStep.inputInstanceId + '_div');
+		$(durationId + '_input0_description').text('ms, 0 = direct follow');
+	}
 
 }
 function doCommand(command){

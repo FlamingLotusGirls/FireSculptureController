@@ -146,6 +146,99 @@ def test_chase_spacing_and_reverse_with_three_pulses(controller):
         assert [col for col in range(14) if pattern.getState(0, col)] == [5, 9, 13]
 
 
+@pytest.mark.parametrize('duration', [500, 1500])
+def test_chase_on_duration_is_independent_of_step_interval(controller, monkeypatch, duration):
+    from Patterns import Poof
+
+    # Advance OFF deadlines explicitly so the exact 500/1000 ms case is deterministic.
+    class Clock:
+        now = 0
+        timers = []
+
+        def advance(self, milliseconds):
+            self.now += milliseconds
+            for timer in self.timers:
+                if timer.deadline is not None and timer.deadline <= self.now:
+                    timer.deadline = None
+                    timer.function(*timer.args)
+
+    clock = Clock()
+
+    class OffTimer:
+        def __init__(self, repeating, interval, function, args):
+            self.interval, self.function, self.args = interval, function, args
+            self.deadline = None
+            clock.timers.append(self)
+
+        def changeInterval(self, interval):
+            self.interval = interval
+
+        def refresh(self):
+            self.deadline = clock.now + self.interval
+
+        def stop(self):
+            self.deadline = None
+
+    monkeypatch.setattr(Poof, 'Timer', OffTimer)
+    controller.loadSculpture('serpent')
+    with engineLock:
+        pattern_id = controller.doCommand(['addPattern', 'poofers', 'Chase'])
+        module = controller.sculptureModules['poofers']
+        pattern = module.patterns[pattern_id]
+        for channel, value in [('numberOn', 1), ('stayOnTime', duration), ('triggerStep', 1000)]:
+            instance, index = pattern.inputs.getInputAssignment(channel)
+            controller.setInputValue(instance, value, index)
+        instance, _ = pattern.inputs.getInputAssignment('triggerStep')
+        step_input = controller.inputManager.getInputObj(instance)
+        step_input.timer.stop()
+        controller.setSafeMode(False)
+        step_input.sendPulse()
+        assert module.currentOutputState[0][:2] == [True, False]
+        clock.advance(500)
+        assert module.currentOutputState[0][:2] == [duration > 500, False]
+        clock.advance(500)
+        step_input.sendPulse()
+        assert module.currentOutputState[0][:2] == [duration > 1000, True]
+        clock.advance(500)
+        assert module.currentOutputState[0][:2] == [False, duration > 500]
+        # Removing a pattern clears active output and cancels every pending OFF.
+        controller.doCommand(['removePattern', 'poofers', pattern_id])
+        assert not any(module.currentOutputState[0])
+        assert all(timer.deadline is None for timer in clock.timers)
+
+
+def test_chase_real_off_timer_and_cleanup(controller):
+    controller.loadSculpture('serpent')
+    with engineLock:
+        pattern_id = controller.doCommand(['addPattern', 'poofers', 'Chase'])
+        module = controller.sculptureModules['poofers']
+        pattern = module.patterns[pattern_id]
+        instance, index = pattern.inputs.getInputAssignment('stayOnTime')
+        controller.setInputValue(instance, 500, index)
+        instance, _ = pattern.inputs.getInputAssignment('triggerStep')
+        step_input = controller.inputManager.getInputObj(instance)
+        step_input.timer.stop()
+        controller.setSafeMode(False)
+        updates = Queue()
+
+        def record_output():
+            module.doUpdates()
+            updates.put((monotonic(), any(module.currentOutputState[0])))
+
+        pattern.setUpdateFunction(record_output)
+        start = monotonic()
+        step_input.sendPulse()
+        assert updates.get(timeout=1)[1] is True
+    while True:
+        when, active = updates.get(timeout=2)
+        if not active:
+            break
+    assert when - start >= 0.45
+    timers = list(pattern.offTimers.values())
+    controller.doCommand(['removePattern', 'poofers', pattern_id])
+    assert all(not timer.is_alive() for timer in timers)
+
+
 def test_timer_refresh_interval_and_self_stop():
     fired = Queue()
     timer = Timer(False, 1000, lambda: fired.put(monotonic()))

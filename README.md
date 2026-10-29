@@ -208,3 +208,18 @@ stream reconnections no longer rebuild the panel, so trigger controls stay in pl
 when operating All Poof or Chase. Live output indicators, Safe/Run status, and USB
 connection status still update. Adding or removing patterns in this browser still
 refreshes the panel automatically.
+
+
+### Chase on duration
+
+Poofer Chase has an **On duration** control beside **Trigger next step in sequence**,
+with **ms, 0 = direct follow** below the control.
+Leave it at **0** for the original behavior. To fire one poofer every second for
+half a second, set **Poofers** to **1**, the **Trigger next step in sequence**
+interval to **1000 ms**, and **On duration** to **500 ms**.
+
+A positive duration applies to each poofer selected by a step, independently of
+when the next step starts. Longer durations can overlap steps. Selecting a poofer
+again before it turns off restarts its on-duration. The last step's poofers finish
+their duration even when the sequence ends. Changes to duration apply to subsequent
+steps; zero switches back to the original behavior. The setting saves with the pattern.
